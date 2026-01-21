@@ -86,12 +86,21 @@ def chat_loop_with_sdk():
     print("Initializing Foundry Local...")
 
     try:
-        manager = FoundryLocalManager("phi-4-mini")
-        endpoint = manager.get_endpoint()
+        manager = FoundryLocalManager("qwen2.5-0.5b")
+        endpoint = manager.endpoint
+        
+        # Get the actual model ID that's loaded
+        loaded = manager.list_loaded_models()
+        if loaded:
+            model_id = loaded[0].id  # It's an object, not a dict
+        else:
+            model_id = "qwen2.5-0.5b"
+            
         print(f"Using endpoint: {endpoint}")
+        print(f"Model: {model_id}")
     except Exception as e:
         print(f"Failed to initialize Foundry Local: {e}")
-        print("\nTry running: foundry model run phi-4-mini")
+        print("\nTry running: foundry model run qwen2.5-0.5b")
         return
 
     import httpx
@@ -108,14 +117,14 @@ def chat_loop_with_sdk():
             break
 
         messages.append({"role": "user", "content": user_input})
-        response = call_model(endpoint, messages)
+        response = call_model(endpoint, messages, model_id)
 
         if response:
             print(f"\nAssistant: {response}")
             messages.append({"role": "assistant", "content": response})
 
 
-def call_model(endpoint: str, messages: list) -> str:
+def call_model(endpoint: str, messages: list, model_id: str = "qwen2.5-0.5b") -> str:
     """Call the model and handle tool execution."""
     import httpx
 
@@ -149,9 +158,9 @@ def call_model(endpoint: str, messages: list) -> str:
     try:
         with httpx.Client(timeout=120) as client:
             resp = client.post(
-                f"{endpoint}/v1/chat/completions",
+                f"{endpoint}/chat/completions",
                 json={
-                    "model": "phi-4-mini",
+                    "model": model_id,
                     "messages": messages,
                     "tools": tools,
                     "tool_choice": "auto",
@@ -189,15 +198,15 @@ def call_model(endpoint: str, messages: list) -> str:
                 ]
 
                 resp = client.post(
-                    f"{endpoint}/v1/chat/completions",
-                    json={"model": "phi-4-mini", "messages": summary_messages},
+                    f"{endpoint}/chat/completions",
+                    json={"model": model_id, "messages": summary_messages},
                 )
                 return resp.json()["choices"][0]["message"]["content"]
 
             return msg.get("content", "")
 
     except httpx.ConnectError:
-        return "Cannot connect to Foundry Local. Run: foundry model run phi-4-mini"
+        return "Cannot connect to Foundry Local. Run: foundry model run qwen2.5-0.5b"
     except Exception as e:
         return f"Error: {e}"
 

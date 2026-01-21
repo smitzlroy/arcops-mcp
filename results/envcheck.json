@@ -1,0 +1,126 @@
+{
+  "version": "0.1.0",
+  "target": "host",
+  "timestamp": "2026-01-21T17:52:33.547467+00:00",
+  "runId": "20260121-175233-db27f476",
+  "metadata": {
+    "toolName": "azlocal.envcheck.wrap",
+    "toolVersion": "0.1.0",
+    "hostname": "DESKTOP-QOPCNO4",
+    "mode": "quick",
+    "simulated": true,
+    "totalDurationMs": 23
+  },
+  "checks": [
+    {
+      "id": "azlocal.connectivity",
+      "title": "Azure Local - Connectivity",
+      "severity": "low",
+      "status": "pass",
+      "evidence": {
+        "details": "All connectivity checks passed. DNS resolution successful for management.azure.com, login.microsoftonline.com",
+        "rawStatus": "Passed"
+      },
+      "sources": [
+        {
+          "type": "doc",
+          "label": "Azure Local Environment Checker",
+          "url": "docs/SOURCES.md#azure-local-environment-checker"
+        }
+      ]
+    },
+    {
+      "id": "azlocal.dns_resolution",
+      "title": "Azure Local - DNS Resolution",
+      "severity": "low",
+      "status": "pass",
+      "evidence": {
+        "details": "DNS resolution working correctly for all required endpoints",
+        "rawStatus": "Passed"
+      },
+      "sources": [
+        {
+          "type": "doc",
+          "label": "Azure Local Environment Checker",
+          "url": "docs/SOURCES.md#azure-local-environment-checker"
+        }
+      ]
+    },
+    {
+      "id": "azlocal.tls_chain",
+      "title": "Azure Local - TLS Chain",
+      "severity": "low",
+      "status": "pass",
+      "evidence": {
+        "details": "TLS certificates valid and properly chained to trusted root CAs",
+        "rawStatus": "Passed"
+      },
+      "sources": [
+        {
+          "type": "doc",
+          "label": "Azure Local Environment Checker",
+          "url": "docs/SOURCES.md#azure-local-environment-checker"
+        }
+      ]
+    },
+    {
+      "id": "azlocal.ntp_sync",
+      "title": "Azure Local - NTP Sync",
+      "severity": "low",
+      "status": "warn",
+      "evidence": {
+        "details": "Time sync drift detected: 2.5 seconds from time.windows.com",
+        "rawStatus": "Warning"
+      },
+      "hint": "Synchronize system time with a reliable NTP server. Time drift can cause authentication failures.",
+      "sources": [
+        {
+          "type": "doc",
+          "label": "Azure Local Environment Checker",
+          "url": "docs/SOURCES.md#azure-local-environment-checker"
+        }
+      ]
+    },
+    {
+      "id": "azlocal.proxy_configuration",
+      "title": "Azure Local - Proxy Configuration",
+      "severity": "low",
+      "status": "pass",
+      "evidence": {
+        "details": "No proxy configured, direct connection available",
+        "rawStatus": "Passed"
+      },
+      "sources": [
+        {
+          "type": "doc",
+          "label": "Azure Local Environment Checker",
+          "url": "docs/SOURCES.md#azure-local-environment-checker"
+        }
+      ]
+    },
+    {
+      "id": "azlocal.azure_arc_agent",
+      "title": "Azure Local - Azure Arc Agent",
+      "severity": "low",
+      "status": "pass",
+      "evidence": {
+        "details": "Azure Arc agent version 1.15.0 installed and running",
+        "rawStatus": "Passed"
+      },
+      "sources": [
+        {
+          "type": "doc",
+          "label": "Azure Local Environment Checker",
+          "url": "docs/SOURCES.md#azure-local-environment-checker"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "pass": 5,
+    "fail": 0,
+    "warn": 1,
+    "skipped": 0
+  }
+}

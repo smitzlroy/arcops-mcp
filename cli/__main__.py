@@ -75,7 +75,7 @@ def envcheck(
     Wraps the Azure Local Environment Checker, parsing its output
     and producing normalized findings conforming to the schema.
     """
-    typer.echo(f"🔍 Running environment check (mode={mode}, dry_run={dry_run})")
+    typer.echo(f"[*] Running environment check (mode={mode}, dry_run={dry_run})")
 
     tool = AzLocalEnvCheckWrapTool()
     findings = asyncio.run(
@@ -93,7 +93,7 @@ def envcheck(
     output_file = write_output(findings, out, "envcheck")
     summary = findings.get("summary", {})
 
-    typer.echo(f"✅ Environment check complete")
+    typer.echo(f"[OK] Environment check complete")
     typer.echo(
         f"   Results: {summary.get('pass', 0)} pass, "
         f"{summary.get('fail', 0)} fail, "
@@ -160,7 +160,7 @@ def egress(
     output_file = write_output(findings, out, "egress")
     summary = findings.get("summary", {})
 
-    typer.echo(f"✅ Egress check complete")
+    typer.echo(f"[OK] Egress check complete")
     typer.echo(
         f"   Results: {summary.get('pass', 0)} pass, "
         f"{summary.get('fail', 0)} fail, "
@@ -202,7 +202,7 @@ def validate(
     Checks extension presence/health, CNI mode, version pins, and Flux GitOps.
     Returns 'skipped' if kubeconfig is unavailable.
     """
-    typer.echo(f"☸️  Validating AKS Arc cluster (dry_run={dry_run})")
+    typer.echo(f"[*] Validating AKS Arc cluster (dry_run={dry_run})")
 
     check_list = checks.split(",")
 
@@ -221,7 +221,7 @@ def validate(
     output_file = write_output(findings, out, "validate")
     summary = findings.get("summary", {})
 
-    typer.echo(f"✅ Validation complete")
+    typer.echo(f"[OK] Validation complete")
     typer.echo(
         f"   Results: {summary.get('pass', 0)} pass, "
         f"{summary.get('fail', 0)} fail, "
@@ -280,7 +280,7 @@ def create_bundle(
         )
     )
 
-    typer.echo(f"✅ Bundle created successfully")
+    typer.echo(f"[OK] Bundle created successfully")
     typer.echo(f"   Run ID: {result.get('runId')}")
     typer.echo(f"   Files: {result.get('fileCount')}")
     typer.echo(f"   Total checks: {result.get('totalChecks')}")
@@ -314,7 +314,7 @@ def export(
     typer.echo(f"📤 Exporting findings to {format}")
 
     if not findings.exists():
-        typer.echo(f"❌ Findings file not found: {findings}", err=True)
+        typer.echo(f"[ERROR] Findings file not found: {findings}", err=True)
         raise typer.Exit(code=1)
 
     with open(findings, "r", encoding="utf-8") as f:
@@ -346,10 +346,10 @@ def export(
             f.write(html)
 
     else:
-        typer.echo(f"❌ Unsupported format: {format}", err=True)
+        typer.echo(f"[ERROR] Unsupported format: {format}", err=True)
         raise typer.Exit(code=1)
 
-    typer.echo(f"✅ Export complete: {output_file}")
+    typer.echo(f"[OK] Export complete: {output_file}")
 
 
 def _generate_html_report(data: dict) -> str:
