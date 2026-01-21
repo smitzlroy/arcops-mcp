@@ -1,19 +1,13 @@
 # Azure Local + AKS Arc Required Endpoints
-# Reference: docs/SOURCES.md
+# Reference: https://learn.microsoft.com/azure-stack/hci/concepts/firewall-requirements
 #
-# This file defines endpoints for egress checks.
-# Customize per tenant/environment. Do NOT commit secrets or tenant-specific data.
-#
-# Format:
-#   - fqdn: fully qualified domain name
-#     port: port number
-#     tls: true/false (whether TLS is expected)
-#     required: true/false (is this endpoint mandatory?)
-#     category: categorization for reporting
-#     description: human-readable description
+# This file defines ALL endpoints needed for Azure Local and AKS Arc connectivity.
+# Organized by category for easy filtering.
 
 endpoints:
-  # Azure Arc Connectivity
+  # ============================================================================
+  # AZURE ARC CORE - Required for all Arc-enabled resources
+  # ============================================================================
   - fqdn: management.azure.com
     port: 443
     tls: true
@@ -22,6 +16,20 @@ endpoints:
     description: Azure Resource Manager
 
   - fqdn: login.microsoftonline.com
+    port: 443
+    tls: true
+    required: true
+    category: azure-arc
+    description: Microsoft Entra ID authentication
+
+  - fqdn: login.windows.net
+    port: 443
+    tls: true
+    required: true
+    category: azure-arc
+    description: Microsoft Entra ID (legacy)
+
+  - fqdn: pas.windows.net
     port: 443
     tls: true
     required: true
@@ -40,9 +48,32 @@ endpoints:
     tls: true
     required: true
     category: azure-arc
-    description: Azure Arc regional metadata service
+    description: Azure Arc regional metadata service (wildcard)
 
-  # AKS Arc specific
+  - fqdn: "*.servicebus.windows.net"
+    port: 443
+    tls: true
+    required: true
+    category: azure-arc
+    description: Azure Service Bus for Arc connectivity
+
+  - fqdn: guestnotificationservice.azure.com
+    port: 443
+    tls: true
+    required: true
+    category: azure-arc
+    description: Guest notification service
+
+  - fqdn: "*.guestnotificationservice.azure.com"
+    port: 443
+    tls: true
+    required: true
+    category: azure-arc
+    description: Regional guest notification service
+
+  # ============================================================================
+  # AKS ARC / KUBERNETES - Required for AKS on Azure Local
+  # ============================================================================
   - fqdn: mcr.microsoft.com
     port: 443
     tls: true
@@ -64,7 +95,127 @@ endpoints:
     category: aks-arc
     description: Microsoft Linux packages repository
 
-  # Azure Monitor (optional for telemetry)
+  - fqdn: acs-mirror.azureedge.net
+    port: 443
+    tls: true
+    required: true
+    category: aks-arc
+    description: AKS container images mirror
+
+  - fqdn: "*.blob.core.windows.net"
+    port: 443
+    tls: true
+    required: true
+    category: aks-arc
+    description: Azure Blob Storage for images/configs
+
+  - fqdn: "*.azurecr.io"
+    port: 443
+    tls: true
+    required: false
+    category: aks-arc
+    description: Azure Container Registry (for custom images)
+
+  - fqdn: "*.hcp.*.azmk8s.io"
+    port: 443
+    tls: true
+    required: true
+    category: aks-arc
+    description: AKS hosted control plane
+
+  - fqdn: mok8s.azurefd.net
+    port: 443
+    tls: true
+    required: true
+    category: aks-arc
+    description: AKS Arc frontend
+
+  # ============================================================================
+  # AZURE LOCAL (HCI) - Required for Azure Stack HCI/Azure Local
+  # ============================================================================
+  - fqdn: azurestackhci.azurefd.net
+    port: 443
+    tls: true
+    required: true
+    category: azure-local
+    description: Azure Local service endpoint
+
+  - fqdn: "*.azurestackhci.azure.com"
+    port: 443
+    tls: true
+    required: true
+    category: azure-local
+    description: Azure Local regional services
+
+  - fqdn: "*.dp.stackhci.azure.com"
+    port: 443
+    tls: true
+    required: true
+    category: azure-local
+    description: Azure Local data plane
+
+  - fqdn: ecpacr.azurecr.io
+    port: 443
+    tls: true
+    required: true
+    category: azure-local
+    description: Azure Local container registry
+
+  - fqdn: "*.ecpacr.azurecr.io"
+    port: 443
+    tls: true
+    required: true
+    category: azure-local
+    description: Azure Local container registry data
+
+  # ============================================================================
+  # WINDOWS UPDATE - Required for OS and component updates
+  # ============================================================================
+  - fqdn: windowsupdate.microsoft.com
+    port: 443
+    tls: true
+    required: false
+    category: windows-update
+    description: Windows Update
+
+  - fqdn: "*.windowsupdate.microsoft.com"
+    port: 443
+    tls: true
+    required: false
+    category: windows-update
+    description: Windows Update services
+
+  - fqdn: download.windowsupdate.com
+    port: 443
+    tls: true
+    required: false
+    category: windows-update
+    description: Windows Update downloads
+
+  - fqdn: download.microsoft.com
+    port: 443
+    tls: true
+    required: false
+    category: windows-update
+    description: Microsoft Download Center
+
+  - fqdn: "*.download.windowsupdate.com"
+    port: 443
+    tls: true
+    required: false
+    category: windows-update
+    description: Windows Update download CDN
+
+  - fqdn: "*.delivery.mp.microsoft.com"
+    port: 443
+    tls: true
+    required: false
+    category: windows-update
+    description: Delivery Optimization
+
+  # ============================================================================
+  # MONITORING & TELEMETRY - For Azure Monitor and diagnostics
+  # ============================================================================
   - fqdn: dc.services.visualstudio.com
     port: 443
     tls: true
@@ -77,24 +228,202 @@ endpoints:
     tls: true
     required: false
     category: monitoring
-    description: Azure Monitor Log Analytics
+    description: Azure Monitor Log Analytics ODS
 
-  # Sample placeholder for tenant-specific endpoints
-  # Uncomment and customize for your environment
-  # - fqdn: your-custom-endpoint.contoso.com
-  #   port: 443
-  #   tls: true
-  #   required: false
-  #   category: custom
-  #   description: Custom tenant endpoint
+  - fqdn: "*.oms.opinsights.azure.com"
+    port: 443
+    tls: true
+    required: false
+    category: monitoring
+    description: Azure Monitor Log Analytics OMS
 
-# Proxy configuration (optional)
+  - fqdn: "*.monitoring.azure.com"
+    port: 443
+    tls: true
+    required: false
+    category: monitoring
+    description: Azure Monitor metrics
+
+  - fqdn: "*.handler.control.monitor.azure.com"
+    port: 443
+    tls: true
+    required: false
+    category: monitoring
+    description: Azure Monitor control plane
+
+  - fqdn: "*.ingest.monitor.azure.com"
+    port: 443
+    tls: true
+    required: false
+    category: monitoring
+    description: Azure Monitor data ingestion
+
+  # ============================================================================
+  # MICROSOFT DEFENDER - For security features
+  # ============================================================================
+  - fqdn: "*.wd.microsoft.com"
+    port: 443
+    tls: true
+    required: false
+    category: defender
+    description: Microsoft Defender
+
+  - fqdn: "*.smartscreen.microsoft.com"
+    port: 443
+    tls: true
+    required: false
+    category: defender
+    description: SmartScreen filtering
+
+  - fqdn: definitionupdates.microsoft.com
+    port: 443
+    tls: true
+    required: false
+    category: defender
+    description: Defender definition updates
+
+  # ============================================================================
+  # AZURE POLICY & GOVERNANCE
+  # ============================================================================
+  - fqdn: "*.policy.core.windows.net"
+    port: 443
+    tls: true
+    required: false
+    category: governance
+    description: Azure Policy
+
+  - fqdn: "*.guestconfiguration.azure.com"
+    port: 443
+    tls: true
+    required: false
+    category: governance
+    description: Azure Guest Configuration
+
+  # ============================================================================
+  # TIME SYNC (NTP) - Critical for authentication
+  # ============================================================================
+  - fqdn: time.windows.com
+    port: 123
+    tls: false
+    required: true
+    category: ntp
+    description: Windows Time Service
+
+  - fqdn: time.google.com
+    port: 123
+    tls: false
+    required: false
+    category: ntp
+    description: Google NTP (fallback)
+
+  # ============================================================================
+  # CERTIFICATE VALIDATION (CRL/OCSP)
+  # ============================================================================
+  - fqdn: crl.microsoft.com
+    port: 80
+    tls: false
+    required: true
+    category: certificates
+    description: Microsoft Certificate Revocation List
+
+  - fqdn: crl3.digicert.com
+    port: 80
+    tls: false
+    required: true
+    category: certificates
+    description: DigiCert CRL
+
+  - fqdn: crl4.digicert.com
+    port: 80
+    tls: false
+    required: true
+    category: certificates
+    description: DigiCert CRL (backup)
+
+  - fqdn: ocsp.digicert.com
+    port: 80
+    tls: false
+    required: true
+    category: certificates
+    description: DigiCert OCSP
+
+  - fqdn: ocsp.msocsp.com
+    port: 80
+    tls: false
+    required: true
+    category: certificates
+    description: Microsoft OCSP
+
+  - fqdn: www.microsoft.com
+    port: 80
+    tls: false
+    required: false
+    category: certificates
+    description: Microsoft root certificate
+
+  # ============================================================================
+  # GITOPS / FLUX - For GitOps-enabled clusters
+  # ============================================================================
+  - fqdn: github.com
+    port: 443
+    tls: true
+    required: false
+    category: gitops
+    description: GitHub (for Flux GitOps)
+
+  - fqdn: api.github.com
+    port: 443
+    tls: true
+    required: false
+    category: gitops
+    description: GitHub API
+
+  - fqdn: "*.githubusercontent.com"
+    port: 443
+    tls: true
+    required: false
+    category: gitops
+    description: GitHub raw content
+
+  - fqdn: dev.azure.com
+    port: 443
+    tls: true
+    required: false
+    category: gitops
+    description: Azure DevOps (for Flux)
+
+  - fqdn: "*.visualstudio.com"
+    port: 443
+    tls: true
+    required: false
+    category: gitops
+    description: Azure DevOps services
+
+# ============================================================================
+# CATEGORIES SUMMARY
+# ============================================================================
+# azure-arc     : Core Arc connectivity (REQUIRED)
+# aks-arc       : AKS on Azure Local (REQUIRED for Kubernetes)
+# azure-local   : Azure Stack HCI / Azure Local services
+# windows-update: OS updates (recommended)
+# monitoring    : Azure Monitor, Log Analytics (optional)
+# defender      : Microsoft Defender (optional)
+# governance    : Azure Policy (optional)
+# ntp           : Time sync (REQUIRED for auth)
+# certificates  : CRL/OCSP (REQUIRED for TLS)
+# gitops        : GitHub/Azure DevOps for Flux (optional)
+
+# ============================================================================
+# PROXY CONFIGURATION (Optional)
+# ============================================================================
 # Set via environment variables: HTTP_PROXY, HTTPS_PROXY, NO_PROXY
 # proxy:
 #   http: http://proxy.contoso.com:8080
 #   https: http://proxy.contoso.com:8080
-#   no_proxy: localhost,127.0.0.1,.contoso.com
+#   no_proxy: localhost,127.0.0.1,.contoso.com,169.254.169.254
 
-# Custom CA trust (optional)
-# Path to PEM-encoded CA bundle for corporate proxies
+# ============================================================================
+# CUSTOM CA TRUST (Optional)
+# ============================================================================
+# For corporate proxies with TLS inspection
 # ca_bundle: /etc/ssl/certs/corporate-ca-bundle.pem

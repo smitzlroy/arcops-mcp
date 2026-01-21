@@ -1,0 +1,55 @@
+{
+  "management.azure.com": {
+    "status": "pass",
+    "latency_ms": 45,
+    "dns_resolved": true,
+    "tls_valid": true
+  },
+  "login.microsoftonline.com": {
+    "status": "pass",
+    "latency_ms": 52,
+    "dns_resolved": true,
+    "tls_valid": true
+  },
+  "mcr.microsoft.com": {
+    "status": "pass",
+    "latency_ms": 38,
+    "dns_resolved": true,
+    "tls_valid": true
+  },
+  "gbl.his.arc.azure.com": {
+    "status": "pass",
+    "latency_ms": 61,
+    "dns_resolved": true,
+    "tls_valid": true
+  },
+  "packages.microsoft.com": {
+    "status": "pass",
+    "latency_ms": 42,
+    "dns_resolved": true,
+    "tls_valid": true
+  },
+  "login.windows.net": {
+    "status": "pass",
+    "latency_ms": 48,
+    "dns_resolved": true,
+    "tls_valid": true
+  },
+  "azurestackhci.azurefd.net": {
+    "status": "pass",
+    "latency_ms": 55,
+    "dns_resolved": true,
+    "tls_valid": true
+  },
+  "time.windows.com": {
+    "status": "pass",
+    "latency_ms": 15,
+    "dns_resolved": true,
+    "ntp_sync": true
+  },
+  "crl.microsoft.com": {
+    "status": "pass",
+    "latency_ms": 32,
+    "dns_resolved": true
+  }
+}

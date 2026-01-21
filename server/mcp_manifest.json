@@ -1,87 +1,56 @@
 {
   "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/mcp/main/schema/mcp.schema.json",
   "name": "arcops-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP-powered operations bridge for Azure Local + AKS Arc",
   "transport": {
     "type": "http",
-    "url": "http://localhost:8080"
+    "url": "http://localhost:8001"
   },
   "tools": [
     {
-      "name": "azlocal.envcheck.wrap",
-      "description": "Wrap and normalize Azure Local Environment Checker outputs. Runs the checker via subprocess if present, otherwise uses fixtures for simulation.",
+      "name": "arc.connectivity.check",
+      "description": "Unified connectivity check for Azure Local and AKS Arc. Tests DNS, TLS, and endpoint reachability. Auto-installs Microsoft Environment Checker if needed.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "mode": {
             "type": "string",
-            "enum": ["quick", "full"],
+            "enum": ["quick", "full", "endpoints-only"],
             "default": "quick",
-            "description": "Execution mode: quick for basic checks, full for comprehensive validation"
+            "description": "Check mode: quick (key endpoints), full (all checks), endpoints-only (just URLs)"
           },
-          "timeoutSec": {
-            "type": "integer",
-            "default": 300,
-            "minimum": 30,
-            "maximum": 3600,
-            "description": "Timeout in seconds for the environment checker"
-          },
-          "rawOutput": {
+          "installChecker": {
             "type": "boolean",
             "default": false,
-            "description": "Include raw checker output in evidence"
+            "description": "Auto-install Microsoft Environment Checker if not present"
           },
           "checkerPath": {
             "type": "string",
-            "description": "Path to the Environment Checker executable (optional, uses env var ENVCHECKER_PATH if not set)"
+            "description": "Path to Environment Checker (auto-detected if not specified)"
           },
-          "dryRun": {
-            "type": "boolean",
-            "default": false,
-            "description": "Simulate execution using fixture data"
-          }
-        },
-        "required": []
-      },
-      "outputSchema": {
-        "$ref": "schemas/findings.schema.json"
-      }
-    },
-    {
-      "name": "arc.gateway.egress.check",
-      "description": "Check TLS/Proxy/FQDN reachability for Azure Arc gateway endpoints. Supports corporate CA trust and HTTP(S)_PROXY.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
           "configPath": {
             "type": "string",
             "default": "server/config/endpoints.yaml",
-            "description": "Path to endpoints configuration YAML"
+            "description": "Path to endpoints configuration"
           },
           "categories": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "enum": ["azure-arc", "aks-arc", "azure-local", "windows-update", "monitoring", "defender", "governance", "ntp", "certificates", "gitops"]
             },
-            "description": "Filter endpoints by category (e.g., azure-arc, aks-arc, monitoring)"
-          },
-          "requiredOnly": {
-            "type": "boolean",
-            "default": false,
-            "description": "Only check required endpoints"
+            "description": "Filter endpoints by category"
           },
           "timeoutSec": {
             "type": "integer",
             "default": 10,
-            "minimum": 1,
-            "maximum": 60,
-            "description": "Timeout per endpoint check in seconds"
+            "description": "Timeout for each endpoint check"
           },
           "dryRun": {
             "type": "boolean",
             "default": false,
-            "description": "Simulate execution using fixture data"
+            "description": "Simulate checks using fixture data"
           }
         },
         "required": []

@@ -7,9 +7,11 @@ References: docs/SOURCES.md#aks-arc-validation
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
+import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -90,9 +92,7 @@ class AksArcValidateTool(BaseTool):
                     "Set KUBECONFIG environment variable or provide --kubeconfig path. "
                     "This check will be skipped until kubeconfig is available."
                 ),
-                sources=[
-                    self.get_source_ref("aks-arc-validation", "AKS Arc Validation")
-                ],
+                sources=[self.get_source_ref("aks-arc-validation", "AKS Arc Validation")],
             )
             return findings
 
@@ -136,7 +136,11 @@ class AksArcValidateTool(BaseTool):
         # Return mock cluster data
         return {
             "extensions": [
-                {"name": "microsoft.azuremonitor.containers", "status": "Installed", "healthy": True},
+                {
+                    "name": "microsoft.azuremonitor.containers",
+                    "status": "Installed",
+                    "healthy": True,
+                },
                 {"name": "microsoft.flux", "status": "Installed", "healthy": True},
                 {"name": "microsoft.azure.policy", "status": "Installed", "healthy": False},
             ],
@@ -159,9 +163,7 @@ class AksArcValidateTool(BaseTool):
             },
         }
 
-    async def _get_cluster_data(
-        self, kubeconfig: Path, context: str | None
-    ) -> dict[str, Any]:
+    async def _get_cluster_data(self, kubeconfig: Path, context: str | None) -> dict[str, Any]:
         """
         Get actual cluster data via kubectl/kubernetes client.
 
@@ -172,6 +174,72 @@ class AksArcValidateTool(BaseTool):
         # For now, return simulated data to keep MVP functional
         logger.info("Cluster data retrieval not implemented - using mock data")
         return await self._load_fixture()
+
+    async def _list_connected_clusters(
+        self, subscription: str | None = None
+    ) -> list[dict[str, Any]]:
+        """
+        List REAL AKS Arc connected clusters from Azure.
+
+        Uses az connectedk8s list to get actual cluster inventory.
+        """
+        try:
+            cmd = ["az", "connectedk8s", "list", "-o", "json"]
+            if subscription:
+                cmd.extend(["--subscription", subscription])
+
+            logger.info("Running: %s", " ".join(cmd))
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+
+            if result.returncode != 0:
+                logger.error("az connectedk8s list failed: %s", result.stderr)
+                return []
+
+            clusters = json.loads(result.stdout)
+            logger.info("Found %d connected clusters", len(clusters))
+            return clusters
+
+        except subprocess.TimeoutExpired:
+            logger.error("az connectedk8s list timed out")
+            return []
+        except json.JSONDecodeError as e:
+            logger.error("Failed to parse az output: %s", e)
+            return []
+        except Exception as e:
+            logger.error("Error listing clusters: %s", e)
+            return []
+
+    async def _get_cluster_extensions(
+        self, cluster_name: str, resource_group: str
+    ) -> list[dict[str, Any]]:
+        """Get extensions installed on a specific cluster."""
+        try:
+            cmd = [
+                "az",
+                "k8s-extension",
+                "list",
+                "--cluster-name",
+                cluster_name,
+                "--resource-group",
+                resource_group,
+                "--cluster-type",
+                "connectedClusters",
+                "-o",
+                "json",
+            ]
+
+            logger.info("Running: %s", " ".join(cmd))
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+
+            if result.returncode != 0:
+                logger.warning("Failed to get extensions for %s: %s", cluster_name, result.stderr)
+                return []
+
+            return json.loads(result.stdout)
+
+        except Exception as e:
+            logger.error("Error getting extensions for %s: %s", cluster_name, e)
+            return []
 
     async def _check_extensions(
         self, findings: dict[str, Any], cluster_data: dict[str, Any]
@@ -197,9 +265,7 @@ class AksArcValidateTool(BaseTool):
                         "installed": False,
                     },
                     hint=f"Extension {expected} is not installed. Install via Azure Portal or CLI.",
-                    sources=[
-                        self.get_source_ref("arc-extensions", "Arc Extensions")
-                    ],
+                    sources=[self.get_source_ref("arc-extensions", "Arc Extensions")],
                     duration_ms=int((time.time() - start_time) * 1000),
                 )
             else:
@@ -219,16 +285,16 @@ class AksArcValidateTool(BaseTool):
                         "status": ext_data.get("status"),
                         "healthy": healthy,
                     },
-                    hint=f"Extension {expected} is unhealthy. Check extension logs." if not healthy else None,
-                    sources=[
-                        self.get_source_ref("arc-extensions", "Arc Extensions")
-                    ],
+                    hint=(
+                        f"Extension {expected} is unhealthy. Check extension logs."
+                        if not healthy
+                        else None
+                    ),
+                    sources=[self.get_source_ref("arc-extensions", "Arc Extensions")],
                     duration_ms=int((time.time() - start_time) * 1000),
                 )
 
-    async def _check_cni(
-        self, findings: dict[str, Any], cluster_data: dict[str, Any]
-    ) -> None:
+    async def _check_cni(self, findings: dict[str, Any], cluster_data: dict[str, Any]) -> None:
         """Check CNI configuration."""
         start_time = time.time()
         cni = cluster_data.get("cni", {})
@@ -257,15 +323,11 @@ class AksArcValidateTool(BaseTool):
                 "podCidr": pod_cidr,
             },
             hint=hint,
-            sources=[
-                self.get_source_ref("aks-arc-networking", "AKS Arc Networking")
-            ],
+            sources=[self.get_source_ref("aks-arc-networking", "AKS Arc Networking")],
             duration_ms=int((time.time() - start_time) * 1000),
         )
 
-    async def _check_versions(
-        self, findings: dict[str, Any], cluster_data: dict[str, Any]
-    ) -> None:
+    async def _check_versions(self, findings: dict[str, Any], cluster_data: dict[str, Any]) -> None:
         """Check version compatibility."""
         start_time = time.time()
         versions = cluster_data.get("versions", {})
@@ -293,15 +355,11 @@ class AksArcValidateTool(BaseTool):
             status=status,
             evidence=versions,
             hint=hint,
-            sources=[
-                self.get_source_ref("aks-arc-versions", "AKS Arc Supported Versions")
-            ],
+            sources=[self.get_source_ref("aks-arc-versions", "AKS Arc Supported Versions")],
             duration_ms=int((time.time() - start_time) * 1000),
         )
 
-    async def _check_flux(
-        self, findings: dict[str, Any], cluster_data: dict[str, Any]
-    ) -> None:
+    async def _check_flux(self, findings: dict[str, Any], cluster_data: dict[str, Any]) -> None:
         """Check Flux GitOps configuration."""
         start_time = time.time()
         flux = cluster_data.get("flux", {})
@@ -318,9 +376,7 @@ class AksArcValidateTool(BaseTool):
                 status="skipped",
                 evidence={"installed": False},
                 hint="Flux is not installed. Install if GitOps is required.",
-                sources=[
-                    self.get_source_ref("arc-gitops", "Arc GitOps with Flux")
-                ],
+                sources=[self.get_source_ref("arc-gitops", "Arc GitOps with Flux")],
                 duration_ms=int((time.time() - start_time) * 1000),
             )
             return
@@ -342,8 +398,6 @@ class AksArcValidateTool(BaseTool):
                 "reconciled": reconciled,
             },
             hint=hint,
-            sources=[
-                self.get_source_ref("arc-gitops", "Arc GitOps with Flux")
-            ],
+            sources=[self.get_source_ref("arc-gitops", "Arc GitOps with Flux")],
             duration_ms=int((time.time() - start_time) * 1000),
         )
