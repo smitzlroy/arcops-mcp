@@ -10,6 +10,26 @@ This project takes the various diagnostic and validation tools used with Azure L
 
 The server runs locally and doesn't phone home. Designed for air-gapped and sovereign environments.
 
+## Quick start (Chat UI)
+
+The easiest way to use this is through the chat interface powered by [Foundry Local](https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-local/):
+
+```bash
+# Install Foundry Local (one-time)
+winget install Microsoft.FoundryLocal
+
+# Install dependencies
+pip install -e .
+
+# Start chatting
+chat.bat
+```
+
+Then just ask questions like:
+- "Is my environment ready for Azure Local?"
+- "Check connectivity to Azure"
+- "Validate my cluster"
+
 ## Tools
 
 | Tool | What it does |
