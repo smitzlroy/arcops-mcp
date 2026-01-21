@@ -1,127 +1,113 @@
-# ArcOps MCP
+# ArcOps
 
-An operations bridge for Azure Local and AKS Arc that wraps existing diagnostic tools and exposes them through the Model Context Protocol (MCP).
+Check if your system is ready for Azure Local and AKS Arc - just ask questions in plain English.
 
-[![CI](https://github.com/smitzlroy/arcops-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/smitzlroy/arcops-mcp/actions/workflows/ci.yml)
+## What does this do?
 
-## What is this?
+Instead of running complex PowerShell scripts and reading through logs, you can just ask:
 
-This project takes the various diagnostic and validation tools used with Azure Local and AKS Arc (Environment Checker, TSG scripts, connectivity tests) and wraps them in a consistent HTTP API. Everything outputs normalized JSON that follows a single schema, making it easier to automate, integrate, and build tooling around.
+- "Is my system ready for Azure Local?"
+- "Can I reach Azure from here?"
+- "Is my cluster configured correctly?"
 
-The server runs locally and doesn't phone home. Designed for air-gapped and sovereign environments.
+The tool runs the actual diagnostic checks and explains the results.
 
-## Quick start (Chat UI)
+## Setup (5 minutes)
 
-The easiest way to use this is through the chat interface powered by [Foundry Local](https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-local/):
+### Step 1: Install Foundry Local
 
-```bash
-# Install Foundry Local (one-time)
+This runs the AI locally on your machine (no cloud needed).
+
+Open PowerShell and run:
+```powershell
 winget install Microsoft.FoundryLocal
-
-# Install dependencies
-pip install -e .
-
-# Start chatting
-chat.bat
 ```
 
-Then just ask questions like:
-- "Is my environment ready for Azure Local?"
-- "Check connectivity to Azure"
-- "Validate my cluster"
+### Step 2: Download this project
 
-## Tools
-
-| Tool | What it does |
-|------|--------------|
-| `azlocal.envcheck.wrap` | Runs Azure Local Environment Checker and normalizes the output |
-| `arc.gateway.egress.check` | Tests connectivity to required Azure endpoints (handles proxies, TLS) |
-| `aks.arc.validate` | Validates AKS Arc cluster config (extensions, CNI, versions) |
-| `arcops.diagnostics.bundle` | Packages findings into a ZIP with checksums |
-
-## Getting started
-
-**Requirements:** Python 3.11+, Node 20+ (optional, for the UI)
-
-```bash
+```powershell
 git clone https://github.com/smitzlroy/arcops-mcp
 cd arcops-mcp
-pip install -e ".[dev]"
+```
+
+### Step 3: Install dependencies
+
+```powershell
+pip install -e .
+pip install foundry-local-sdk
 ```
 
 ## Usage
 
-### CLI
+### Option 1: Chat interface (easiest)
 
-```bash
-# Run environment checks (dry-run mode for testing)
-python -m cli envcheck --dry-run --out ./results
-
-# Test egress connectivity
-python -m cli egress --dry-run --out ./results
-
-# Validate AKS Arc cluster
-python -m cli validate --dry-run --out ./results
-
-# Bundle everything into a ZIP
-python -m cli bundle --in ./results --out ./results
+```powershell
+.\start.ps1
 ```
 
-### HTTP Server
+This starts everything and opens a chat where you can ask questions.
 
-```bash
+### Option 2: Run checks directly
+
+If you don't want to use the chat, you can run checks directly:
+
+```powershell
+# Check environment
+python -m cli envcheck --dry-run
+
+# Check connectivity  
+python -m cli egress --dry-run
+
+# Validate cluster
+python -m cli validate --dry-run
+```
+
+## Troubleshooting
+
+**"Foundry Local not running"**
+
+Run this first:
+```powershell
+foundry model run phi-4-mini
+```
+
+Wait for it to download (first time only, ~2GB), then try again.
+
+**"Access denied" when starting service**
+
+Run PowerShell as Administrator, then:
+```powershell
+foundry service start
+```
+
+**"Cannot connect"**
+
+Check if the service is running:
+```powershell
+foundry service status
+```
+
+## What's inside
+
+| Tool | What it checks |
+|------|----------------|
+| `envcheck` | Hardware, OS, prerequisites for Azure Local |
+| `egress` | Network connectivity to Azure endpoints |
+| `validate` | AKS Arc cluster configuration |
+| `bundle` | Package all results into a ZIP for support |
+
+## Advanced: HTTP API
+
+If you want to integrate with other tools, start the server:
+
+```powershell
 python -m cli server --port 8080
 ```
 
-Then call tools via HTTP:
-
-```bash
-curl -X POST http://localhost:8080/mcp/tools/azlocal.envcheck.wrap \
-  -H "Content-Type: application/json" \
-  -d '{"arguments": {"mode": "quick", "dryRun": true}}'
+Then call:
 ```
-
-### Web UI
-
-There's a simple React app for viewing results:
-
-```bash
-cd ui && npm ci && npm run dev
+POST http://localhost:8080/mcp/tools/azlocal.envcheck.wrap
 ```
-
-Open http://localhost:5173 and drag-drop a findings JSON file.
-
-## Configuration
-
-Endpoints are defined in `server/config/endpoints.yaml`. Add or remove entries as needed for your environment.
-
-For proxied environments:
-
-```bash
-export HTTPS_PROXY=http://proxy.example.com:8080
-export NO_PROXY=localhost,127.0.0.1,.internal.local
-```
-
-## Project layout
-
-```
-server/          FastAPI app and tool implementations
-cli/             Command-line interface
-schemas/         JSON schema for findings output
-ui/              React viewer for results
-tests/           Test suite
-docs/            Additional documentation
-```
-
-## Development
-
-```bash
-pip install -e ".[dev]"
-pre-commit install
-pytest tests/ -v
-```
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for design details and [docs/SOURCES.md](docs/SOURCES.md) for external references.
 
 ## License
 
