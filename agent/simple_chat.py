@@ -88,14 +88,14 @@ def chat_loop_with_sdk():
     try:
         manager = FoundryLocalManager("qwen2.5-0.5b")
         endpoint = manager.endpoint
-        
+
         # Get the actual model ID that's loaded
         loaded = manager.list_loaded_models()
         if loaded:
             model_id = loaded[0].id  # It's an object, not a dict
         else:
             model_id = "qwen2.5-0.5b"
-            
+
         print(f"Using endpoint: {endpoint}")
         print(f"Model: {model_id}")
     except Exception as e:
