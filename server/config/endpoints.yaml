@@ -1,0 +1,100 @@
+# Azure Local + AKS Arc Required Endpoints
+# Reference: docs/SOURCES.md
+#
+# This file defines endpoints for egress checks.
+# Customize per tenant/environment. Do NOT commit secrets or tenant-specific data.
+#
+# Format:
+#   - fqdn: fully qualified domain name
+#     port: port number
+#     tls: true/false (whether TLS is expected)
+#     required: true/false (is this endpoint mandatory?)
+#     category: categorization for reporting
+#     description: human-readable description
+
+endpoints:
+  # Azure Arc Connectivity
+  - fqdn: management.azure.com
+    port: 443
+    tls: true
+    required: true
+    category: azure-arc
+    description: Azure Resource Manager
+
+  - fqdn: login.microsoftonline.com
+    port: 443
+    tls: true
+    required: true
+    category: azure-arc
+    description: Microsoft Entra ID authentication
+
+  - fqdn: gbl.his.arc.azure.com
+    port: 443
+    tls: true
+    required: true
+    category: azure-arc
+    description: Azure Arc global metadata service
+
+  - fqdn: "*.his.arc.azure.com"
+    port: 443
+    tls: true
+    required: true
+    category: azure-arc
+    description: Azure Arc regional metadata service
+
+  # AKS Arc specific
+  - fqdn: mcr.microsoft.com
+    port: 443
+    tls: true
+    required: true
+    category: aks-arc
+    description: Microsoft Container Registry
+
+  - fqdn: "*.data.mcr.microsoft.com"
+    port: 443
+    tls: true
+    required: true
+    category: aks-arc
+    description: MCR data endpoints
+
+  - fqdn: packages.microsoft.com
+    port: 443
+    tls: true
+    required: true
+    category: aks-arc
+    description: Microsoft Linux packages repository
+
+  # Azure Monitor (optional for telemetry)
+  - fqdn: dc.services.visualstudio.com
+    port: 443
+    tls: true
+    required: false
+    category: monitoring
+    description: Application Insights ingestion
+
+  - fqdn: "*.ods.opinsights.azure.com"
+    port: 443
+    tls: true
+    required: false
+    category: monitoring
+    description: Azure Monitor Log Analytics
+
+  # Sample placeholder for tenant-specific endpoints
+  # Uncomment and customize for your environment
+  # - fqdn: your-custom-endpoint.contoso.com
+  #   port: 443
+  #   tls: true
+  #   required: false
+  #   category: custom
+  #   description: Custom tenant endpoint
+
+# Proxy configuration (optional)
+# Set via environment variables: HTTP_PROXY, HTTPS_PROXY, NO_PROXY
+# proxy:
+#   http: http://proxy.contoso.com:8080
+#   https: http://proxy.contoso.com:8080
+#   no_proxy: localhost,127.0.0.1,.contoso.com
+
+# Custom CA trust (optional)
+# Path to PEM-encoded CA bundle for corporate proxies
+# ca_bundle: /etc/ssl/certs/corporate-ca-bundle.pem

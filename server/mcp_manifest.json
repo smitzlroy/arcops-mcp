@@ -1,0 +1,194 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/mcp/main/schema/mcp.schema.json",
+  "name": "arcops-mcp",
+  "version": "0.1.0",
+  "description": "MCP-powered operations bridge for Azure Local + AKS Arc",
+  "transport": {
+    "type": "http",
+    "url": "http://localhost:8080"
+  },
+  "tools": [
+    {
+      "name": "azlocal.envcheck.wrap",
+      "description": "Wrap and normalize Azure Local Environment Checker outputs. Runs the checker via subprocess if present, otherwise uses fixtures for simulation.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["quick", "full"],
+            "default": "quick",
+            "description": "Execution mode: quick for basic checks, full for comprehensive validation"
+          },
+          "timeoutSec": {
+            "type": "integer",
+            "default": 300,
+            "minimum": 30,
+            "maximum": 3600,
+            "description": "Timeout in seconds for the environment checker"
+          },
+          "rawOutput": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include raw checker output in evidence"
+          },
+          "checkerPath": {
+            "type": "string",
+            "description": "Path to the Environment Checker executable (optional, uses env var ENVCHECKER_PATH if not set)"
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false,
+            "description": "Simulate execution using fixture data"
+          }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "$ref": "schemas/findings.schema.json"
+      }
+    },
+    {
+      "name": "arc.gateway.egress.check",
+      "description": "Check TLS/Proxy/FQDN reachability for Azure Arc gateway endpoints. Supports corporate CA trust and HTTP(S)_PROXY.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "configPath": {
+            "type": "string",
+            "default": "server/config/endpoints.yaml",
+            "description": "Path to endpoints configuration YAML"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Filter endpoints by category (e.g., azure-arc, aks-arc, monitoring)"
+          },
+          "requiredOnly": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only check required endpoints"
+          },
+          "timeoutSec": {
+            "type": "integer",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 60,
+            "description": "Timeout per endpoint check in seconds"
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false,
+            "description": "Simulate execution using fixture data"
+          }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "$ref": "schemas/findings.schema.json"
+      }
+    },
+    {
+      "name": "aks.arc.validate",
+      "description": "Validate AKS Arc cluster invariants: extension presence/health, CNI mode, version pins. Returns 'skipped' if kubeconfig is unavailable.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kubeconfig": {
+            "type": "string",
+            "description": "Path to kubeconfig file (default: ~/.kube/config)"
+          },
+          "context": {
+            "type": "string",
+            "description": "Kubernetes context to use"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["extensions", "cni", "versions", "flux", "all"]
+            },
+            "default": ["all"],
+            "description": "Which validation checks to run"
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false,
+            "description": "Simulate execution using fixture data"
+          }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "$ref": "schemas/findings.schema.json"
+      }
+    },
+    {
+      "name": "arcops.diagnostics.bundle",
+      "description": "Create a diagnostics bundle ZIP with findings.json, raw logs, and SHA256 manifest. Optional signing support.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "inputPaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Paths to JSON findings files or directories to include"
+          },
+          "outputDir": {
+            "type": "string",
+            "default": "./artifacts",
+            "description": "Output directory for the bundle"
+          },
+          "sign": {
+            "type": "boolean",
+            "default": false,
+            "description": "Sign the bundle (requires signing key)"
+          },
+          "includeLogs": {
+            "type": "boolean",
+            "default": true,
+            "description": "Include raw log files in bundle"
+          },
+          "runId": {
+            "type": "string",
+            "description": "Custom run ID (auto-generated if not provided)"
+          }
+        },
+        "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "bundlePath": {
+            "type": "string",
+            "description": "Path to the created bundle ZIP"
+          },
+          "manifestPath": {
+            "type": "string",
+            "description": "Path to the SHA256 manifest"
+          },
+          "runId": {
+            "type": "string",
+            "description": "Run ID for the bundle"
+          }
+        }
+      }
+    }
+  ],
+  "schemas": {
+    "findings": {
+      "$ref": "schemas/findings.schema.json"
+    }
+  },
+  "metadata": {
+    "author": "smitzlroy",
+    "repository": "https://github.com/smitzlroy/arcops-mcp",
+    "license": "MIT",
+    "sovereignSafe": true,
+    "offlineCapable": true
+  }
+}

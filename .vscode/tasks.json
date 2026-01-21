@@ -1,0 +1,100 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run MCP Server",
+      "type": "shell",
+      "command": "python",
+      "args": ["-m", "cli", "server", "--reload"],
+      "problemMatcher": [],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Run UI Dev Server",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev"],
+      "options": {
+        "cwd": "${workspaceFolder}/ui"
+      },
+      "problemMatcher": [],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "CLI: Environment Check (Dry Run)",
+      "type": "shell",
+      "command": "python",
+      "args": ["-m", "cli", "envcheck", "--dry-run", "--out", "./artifacts"],
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "CLI: Egress Check (Dry Run)",
+      "type": "shell",
+      "command": "python",
+      "args": ["-m", "cli", "egress", "--dry-run", "--out", "./artifacts"],
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "CLI: Validate Cluster (Dry Run)",
+      "type": "shell",
+      "command": "python",
+      "args": ["-m", "cli", "validate", "--dry-run", "--out", "./artifacts"],
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "CLI: Create Bundle",
+      "type": "shell",
+      "command": "python",
+      "args": ["-m", "cli", "bundle", "--in", "./artifacts", "--out", "./artifacts"],
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "Run All Tests",
+      "type": "shell",
+      "command": "pytest",
+      "args": ["tests/", "-v", "--cov=server", "--cov=cli"],
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Lint & Format",
+      "type": "shell",
+      "command": "black server/ cli/ tests/ && isort server/ cli/ tests/ && mypy server/ cli/",
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "Build UI",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "build"],
+      "options": {
+        "cwd": "${workspaceFolder}/ui"
+      },
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "Install Dependencies",
+      "type": "shell",
+      "command": "pip install -e '.[dev]' && cd ui && npm ci",
+      "problemMatcher": [],
+      "group": "build"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "management.azure.com": {
+    "status": "pass",
+    "latency_ms": 45,
+    "tls_verified": true
+  },
+  "login.microsoftonline.com": {
+    "status": "pass",
+    "latency_ms": 38,
+    "tls_verified": true
+  },
+  "gbl.his.arc.azure.com": {
+    "status": "pass",
+    "latency_ms": 52,
+    "tls_verified": true
+  },
+  "mcr.microsoft.com": {
+    "status": "pass",
+    "latency_ms": 67,
+    "tls_verified": true
+  },
+  "packages.microsoft.com": {
+    "status": "pass",
+    "latency_ms": 43,
+    "tls_verified": true
+  },
+  "dc.services.visualstudio.com": {
+    "status": "warn",
+    "latency_ms": 150,
+    "tls_verified": true,
+    "warning": "High latency detected"
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/smitzlroy/arcops-mcp/schemas/findings.schema.json",
+  "title": "ArcOps MCP Findings",
+  "description": "Normalized findings contract for Azure Local + AKS Arc operations",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["version", "target", "timestamp", "checks"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version (semver)",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "examples": ["0.1.0"]
+    },
+    "target": {
+      "type": "string",
+      "description": "Target type being validated",
+      "enum": ["cluster", "host", "site", "gateway", "bundle"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when the checks were performed"
+    },
+    "runId": {
+      "type": "string",
+      "description": "Unique identifier for this run",
+      "pattern": "^[a-zA-Z0-9-]+$"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional context about the run",
+      "properties": {
+        "toolName": {
+          "type": "string",
+          "description": "Name of the tool that generated findings"
+        },
+        "toolVersion": {
+          "type": "string",
+          "description": "Version of the tool"
+        },
+        "hostname": {
+          "type": "string",
+          "description": "Hostname where checks were executed"
+        },
+        "mode": {
+          "type": "string",
+          "description": "Execution mode (quick, full, etc.)"
+        }
+      },
+      "additionalProperties": true
+    },
+    "checks": {
+      "type": "array",
+      "description": "Array of check results",
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    },
+    "summary": {
+      "type": "object",
+      "description": "Aggregated summary of all checks",
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pass": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fail": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warn": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": ["total", "pass", "fail", "warn", "skipped"]
+    }
+  },
+  "$defs": {
+    "check": {
+      "type": "object",
+      "required": ["id", "title", "severity", "status"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the check",
+          "pattern": "^[a-zA-Z0-9._-]+$",
+          "examples": ["azlocal.connectivity.dns", "arc.gateway.tls"]
+        },
+        "title": {
+          "type": "string",
+          "description": "Human-readable title of the check",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of what the check validates"
+        },
+        "severity": {
+          "type": "string",
+          "description": "Severity level of the check",
+          "enum": ["high", "medium", "low"]
+        },
+        "status": {
+          "type": "string",
+          "description": "Result status of the check",
+          "enum": ["pass", "fail", "warn", "skipped"]
+        },
+        "evidence": {
+          "type": "object",
+          "description": "Evidence data supporting the check result",
+          "additionalProperties": true
+        },
+        "hint": {
+          "type": "string",
+          "description": "Actionable hint for remediation if check failed or warned"
+        },
+        "sources": {
+          "type": "array",
+          "description": "References to documentation or TSG sources",
+          "items": {
+            "$ref": "#/$defs/source"
+          }
+        },
+        "duration_ms": {
+          "type": "integer",
+          "description": "Time taken to execute the check in milliseconds",
+          "minimum": 0
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["type", "label"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Type of the source reference",
+          "enum": ["doc", "tsg", "kb", "internal"]
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable label for the source"
+        },
+        "url": {
+          "type": "string",
+          "description": "URL to the source (use docs/SOURCES.md anchors for internal refs)",
+          "format": "uri"
+        }
+      }
+    }
+  }
+}

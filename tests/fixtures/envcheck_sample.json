@@ -1,0 +1,39 @@
+{
+  "checks": [
+    {
+      "name": "Connectivity",
+      "status": "Passed",
+      "details": "All connectivity checks passed. DNS resolution successful for management.azure.com, login.microsoftonline.com"
+    },
+    {
+      "name": "DNS Resolution",
+      "status": "Passed",
+      "details": "DNS resolution working correctly for all required endpoints"
+    },
+    {
+      "name": "TLS Chain",
+      "status": "Passed",
+      "details": "TLS certificates valid and properly chained to trusted root CAs"
+    },
+    {
+      "name": "NTP Sync",
+      "status": "Warning",
+      "details": "Time sync drift detected: 2.5 seconds from time.windows.com"
+    },
+    {
+      "name": "Proxy Configuration",
+      "status": "Passed",
+      "details": "No proxy configured, direct connection available"
+    },
+    {
+      "name": "Azure Arc Agent",
+      "status": "Passed",
+      "details": "Azure Arc agent version 1.15.0 installed and running"
+    }
+  ],
+  "metadata": {
+    "checkerVersion": "2.0.0",
+    "timestamp": "2025-01-21T10:30:00Z",
+    "hostname": "azlocal-node01"
+  }
+}

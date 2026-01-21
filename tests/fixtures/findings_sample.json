@@ -1,0 +1,175 @@
+{
+  "version": "0.1.0",
+  "target": "cluster",
+  "timestamp": "2025-01-21T10:30:00Z",
+  "runId": "20250121-103000-abc12345",
+  "metadata": {
+    "toolName": "aks.arc.validate",
+    "toolVersion": "0.1.0",
+    "hostname": "operator-workstation",
+    "mode": "full"
+  },
+  "checks": [
+    {
+      "id": "aks.arc.extension.microsoft_azuremonitor_containers",
+      "title": "Arc Extension: microsoft.azuremonitor.containers",
+      "severity": "low",
+      "status": "pass",
+      "evidence": {
+        "extension": "microsoft.azuremonitor.containers",
+        "installed": true,
+        "status": "Installed",
+        "healthy": true
+      },
+      "sources": [
+        {
+          "type": "doc",
+          "label": "Arc Extensions",
+          "url": "docs/SOURCES.md#arc-extensions"
+        }
+      ],
+      "duration_ms": 120
+    },
+    {
+      "id": "aks.arc.extension.microsoft_flux",
+      "title": "Arc Extension: microsoft.flux",
+      "severity": "low",
+      "status": "pass",
+      "evidence": {
+        "extension": "microsoft.flux",
+        "installed": true,
+        "status": "Installed",
+        "healthy": true
+      },
+      "sources": [
+        {
+          "type": "doc",
+          "label": "Arc Extensions",
+          "url": "docs/SOURCES.md#arc-extensions"
+        }
+      ],
+      "duration_ms": 85
+    },
+    {
+      "id": "aks.arc.extension.microsoft_azure_policy",
+      "title": "Arc Extension: microsoft.azure.policy",
+      "severity": "medium",
+      "status": "warn",
+      "evidence": {
+        "extension": "microsoft.azure.policy",
+        "installed": true,
+        "status": "Installed",
+        "healthy": false
+      },
+      "hint": "Extension microsoft.azure.policy is unhealthy. Check extension logs.",
+      "sources": [
+        {
+          "type": "doc",
+          "label": "Arc Extensions",
+          "url": "docs/SOURCES.md#arc-extensions"
+        }
+      ],
+      "duration_ms": 95
+    },
+    {
+      "id": "aks.arc.cni.config",
+      "title": "CNI Configuration",
+      "severity": "medium",
+      "status": "pass",
+      "evidence": {
+        "plugin": "azure",
+        "mode": "overlay",
+        "podCidr": "10.244.0.0/16"
+      },
+      "sources": [
+        {
+          "type": "doc",
+          "label": "AKS Arc Networking",
+          "url": "docs/SOURCES.md#aks-arc-networking"
+        }
+      ],
+      "duration_ms": 45
+    },
+    {
+      "id": "aks.arc.versions",
+      "title": "Version Compatibility",
+      "severity": "medium",
+      "status": "pass",
+      "evidence": {
+        "kubernetes": "1.28.5",
+        "arcAgent": "1.15.0",
+        "helmOperator": "1.4.2"
+      },
+      "sources": [
+        {
+          "type": "doc",
+          "label": "AKS Arc Supported Versions",
+          "url": "docs/SOURCES.md#aks-arc-versions"
+        }
+      ],
+      "duration_ms": 30
+    },
+    {
+      "id": "aks.arc.flux",
+      "title": "Flux GitOps",
+      "severity": "medium",
+      "status": "pass",
+      "evidence": {
+        "installed": true,
+        "version": "2.2.0",
+        "gitRepositories": 2,
+        "kustomizations": 3,
+        "reconciled": true
+      },
+      "sources": [
+        {
+          "type": "doc",
+          "label": "Arc GitOps with Flux",
+          "url": "docs/SOURCES.md#arc-gitops"
+        }
+      ],
+      "duration_ms": 150
+    }
+  ],
+  "summary": {
+    "total": 6,
+    "pass": 5,
+    "fail": 0,
+    "warn": 1,
+    "skipped": 0
+  },
+  "extensions": [
+    {
+      "name": "microsoft.azuremonitor.containers",
+      "status": "Installed",
+      "healthy": true
+    },
+    {
+      "name": "microsoft.flux",
+      "status": "Installed",
+      "healthy": true
+    },
+    {
+      "name": "microsoft.azure.policy",
+      "status": "Installed",
+      "healthy": false
+    }
+  ],
+  "cni": {
+    "plugin": "azure",
+    "mode": "overlay",
+    "podCidr": "10.244.0.0/16"
+  },
+  "versions": {
+    "kubernetes": "1.28.5",
+    "arcAgent": "1.15.0",
+    "helmOperator": "1.4.2"
+  },
+  "flux": {
+    "installed": true,
+    "version": "2.2.0",
+    "gitRepositories": 2,
+    "kustomizations": 3,
+    "reconciled": true
+  }
+}
