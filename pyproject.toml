@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "arcops-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP-powered operations bridge for Azure Local + AKS Arc"
 readme = "README.md"
 license = "MIT"
@@ -33,6 +33,7 @@ dependencies = [
     "cryptography>=42.0.0",
     "httpx>=0.26.0",
     "jsonschema>=4.21.0",
+    "mcp>=1.0.0",  # Official MCP Python SDK
 ]
 
 [project.optional-dependencies]

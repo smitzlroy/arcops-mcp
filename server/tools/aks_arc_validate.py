@@ -165,15 +165,189 @@ class AksArcValidateTool(BaseTool):
 
     async def _get_cluster_data(self, kubeconfig: Path, context: str | None) -> dict[str, Any]:
         """
-        Get actual cluster data via kubectl/kubernetes client.
+        Get REAL cluster data via kubectl and Azure CLI.
 
-        Note: In production, this would use the kubernetes Python client.
-        For MVP, we return simulated data.
+        Uses kubectl for cluster-internal data (CNI, versions) and
+        Azure CLI for Arc-specific data (extensions, connected clusters).
+
+        Returns dict with: extensions, cni, versions, flux
         """
-        # TODO: Implement actual kubernetes client integration
-        # For now, return simulated data to keep MVP functional
-        logger.info("Cluster data retrieval not implemented - using mock data")
-        return await self._load_fixture()
+        cluster_data: dict[str, Any] = {
+            "extensions": [],
+            "cni": {},
+            "versions": {},
+            "flux": {},
+        }
+
+        # Build kubectl base command with kubeconfig
+        kubectl_base = ["kubectl", f"--kubeconfig={kubeconfig}"]
+        if context:
+            kubectl_base.extend(["--context", context])
+
+        # 1. Get Kubernetes version
+        try:
+            cmd = kubectl_base + ["version", "-o", "json"]
+            logger.info("Running: %s", " ".join(cmd))
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+            if result.returncode == 0:
+                version_data = json.loads(result.stdout)
+                server_version = version_data.get("serverVersion", {})
+                cluster_data["versions"]["kubernetes"] = server_version.get(
+                    "gitVersion", "unknown"
+                ).lstrip("v")
+            else:
+                logger.warning("kubectl version failed: %s", result.stderr)
+                cluster_data["versions"]["kubernetes"] = "unknown"
+        except Exception as e:
+            logger.error("Failed to get kubernetes version: %s", e)
+            cluster_data["versions"]["kubernetes"] = "error"
+
+        # 2. Get CNI configuration from kube-system pods
+        try:
+            cmd = kubectl_base + ["get", "pods", "-n", "kube-system", "-o", "json"]
+            logger.info("Running: %s", " ".join(cmd))
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+            if result.returncode == 0:
+                pods_data = json.loads(result.stdout)
+                cni_plugin = "unknown"
+
+                for pod in pods_data.get("items", []):
+                    pod_name = pod.get("metadata", {}).get("name", "")
+                    if "azure-cni" in pod_name or "azure-ip" in pod_name:
+                        cni_plugin = "azure"
+                        break
+                    elif "calico" in pod_name:
+                        cni_plugin = "calico"
+                        break
+                    elif "flannel" in pod_name:
+                        cni_plugin = "flannel"
+                        break
+                    elif "cilium" in pod_name:
+                        cni_plugin = "cilium"
+                        break
+
+                cluster_data["cni"]["plugin"] = cni_plugin
+        except Exception as e:
+            logger.error("Failed to detect CNI: %s", e)
+            cluster_data["cni"]["plugin"] = "error"
+
+        # 3. Get Arc agent info from azure-arc namespace
+        try:
+            cmd = kubectl_base + ["get", "pods", "-n", "azure-arc", "-o", "json"]
+            logger.info("Running: %s", " ".join(cmd))
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+            if result.returncode == 0:
+                pods_data = json.loads(result.stdout)
+                for pod in pods_data.get("items", []):
+                    containers = pod.get("spec", {}).get("containers", [])
+                    for container in containers:
+                        if "arc" in container.get("name", "").lower():
+                            image = container.get("image", "")
+                            # Extract version from image tag
+                            if ":" in image:
+                                version = image.split(":")[-1]
+                                cluster_data["versions"]["arcAgent"] = version
+                                break
+            else:
+                logger.warning("No azure-arc namespace or pods: %s", result.stderr)
+        except Exception as e:
+            logger.error("Failed to get Arc agent version: %s", e)
+
+        # 4. Try to get connected cluster info from Azure CLI
+        try:
+            # First try to get cluster name from azure-arc configmap
+            cmd = kubectl_base + [
+                "get",
+                "configmap",
+                "azure-clusterconfig",
+                "-n",
+                "azure-arc",
+                "-o",
+                "json",
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+            cluster_name = None
+            resource_group = None
+
+            if result.returncode == 0:
+                config_data = json.loads(result.stdout)
+                data = config_data.get("data", {})
+                cluster_name = data.get("AZURE_RESOURCE_NAME")
+                resource_group = data.get("AZURE_RESOURCE_GROUP")
+
+            # Get extensions if we have cluster info
+            if cluster_name and resource_group:
+                extensions = await self._get_cluster_extensions(cluster_name, resource_group)
+                for ext in extensions:
+                    ext_info = {
+                        "name": ext.get("extensionType", ext.get("name", "unknown")),
+                        "status": ext.get("provisioningState", "Unknown"),
+                        "healthy": ext.get("provisioningState") == "Succeeded",
+                        "version": ext.get("version"),
+                    }
+                    cluster_data["extensions"].append(ext_info)
+        except Exception as e:
+            logger.error("Failed to get extensions from Azure: %s", e)
+
+        # 5. Check for Flux GitOps
+        try:
+            cmd = kubectl_base + ["get", "pods", "-n", "flux-system", "-o", "json"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+            if result.returncode == 0:
+                pods_data = json.loads(result.stdout)
+                flux_pods = pods_data.get("items", [])
+
+                cluster_data["flux"]["installed"] = len(flux_pods) > 0
+
+                # Get Flux version from source-controller
+                for pod in flux_pods:
+                    if "source-controller" in pod.get("metadata", {}).get("name", ""):
+                        containers = pod.get("spec", {}).get("containers", [])
+                        for container in containers:
+                            image = container.get("image", "")
+                            if ":" in image:
+                                cluster_data["flux"]["version"] = image.split(":")[-1]
+                                break
+
+                # Count GitRepositories
+                cmd_repos = kubectl_base + ["get", "gitrepositories", "-A", "--no-headers"]
+                result_repos = subprocess.run(cmd_repos, capture_output=True, text=True, timeout=30)
+                if result_repos.returncode == 0:
+                    repos = [line for line in result_repos.stdout.strip().split("\n") if line]
+                    cluster_data["flux"]["gitRepositories"] = len(repos)
+
+                # Count Kustomizations
+                cmd_kust = kubectl_base + ["get", "kustomizations", "-A", "--no-headers"]
+                result_kust = subprocess.run(cmd_kust, capture_output=True, text=True, timeout=30)
+                if result_kust.returncode == 0:
+                    kusts = [line for line in result_kust.stdout.strip().split("\n") if line]
+                    cluster_data["flux"]["kustomizations"] = len(kusts)
+
+                # Check reconciliation status (simplified - check if all pods are Running)
+                all_running = all(
+                    pod.get("status", {}).get("phase") == "Running" for pod in flux_pods
+                )
+                cluster_data["flux"]["reconciled"] = all_running
+            else:
+                cluster_data["flux"]["installed"] = False
+        except Exception as e:
+            logger.error("Failed to check Flux status: %s", e)
+            cluster_data["flux"]["installed"] = False
+
+        logger.info(
+            "Collected real cluster data: extensions=%d, cni=%s, k8s=%s, flux=%s",
+            len(cluster_data["extensions"]),
+            cluster_data["cni"].get("plugin", "unknown"),
+            cluster_data["versions"].get("kubernetes", "unknown"),
+            cluster_data["flux"].get("installed", False),
+        )
+
+        return cluster_data
 
     async def _list_connected_clusters(
         self, subscription: str | None = None

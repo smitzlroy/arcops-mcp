@@ -12,12 +12,72 @@ from datetime import datetime, timezone
 from typing import Any
 
 
+# Standard output schema for all diagnostic tools (MCP compliance)
+FINDINGS_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "version": {"type": "string", "description": "Schema version"},
+        "target": {
+            "type": "string",
+            "description": "What was checked (connectivity, cluster, etc.)",
+        },
+        "timestamp": {"type": "string", "format": "date-time"},
+        "runId": {"type": "string", "description": "Unique run identifier"},
+        "metadata": {
+            "type": "object",
+            "properties": {
+                "toolName": {"type": "string"},
+                "toolVersion": {"type": "string"},
+                "hostname": {"type": "string"},
+                "mode": {"type": "string"},
+            },
+        },
+        "checks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "description": "Unique check identifier"},
+                    "title": {"type": "string", "description": "Human-readable check name"},
+                    "severity": {"type": "string", "enum": ["high", "medium", "low", "info"]},
+                    "status": {"type": "string", "enum": ["pass", "fail", "warn", "skipped"]},
+                    "evidence": {
+                        "type": "object",
+                        "description": "Supporting data for the check result",
+                    },
+                    "hint": {
+                        "type": "string",
+                        "description": "Remediation guidance if check failed",
+                    },
+                },
+                "required": ["id", "title", "severity", "status"],
+            },
+        },
+        "summary": {
+            "type": "object",
+            "properties": {
+                "total": {"type": "integer"},
+                "pass": {"type": "integer"},
+                "fail": {"type": "integer"},
+                "warn": {"type": "integer"},
+                "skipped": {"type": "integer"},
+            },
+            "required": ["total", "pass", "fail", "warn"],
+        },
+    },
+    "required": ["version", "target", "timestamp", "checks", "summary"],
+}
+
+
 class BaseTool(ABC):
     """Abstract base class for MCP tools."""
 
     name: str = ""
     description: str = ""
     input_schema: dict[str, Any] = {}
+    output_schema: dict[str, Any] = (
+        FINDINGS_OUTPUT_SCHEMA  # MCP compliance: declare output structure
+    )
 
     def generate_run_id(self) -> str:
         """Generate a unique run ID."""

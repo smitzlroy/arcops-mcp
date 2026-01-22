@@ -1,0 +1,45 @@
+{
+  "description": "Sample output from Search-AzLocalTSG for dry run testing",
+  "results": [
+    {
+      "title": "Troubleshoot Azure Local Connectivity Issues",
+      "category": "Networking",
+      "url": "https://github.com/Azure/AzureLocal-Supportability/blob/main/TSG/Networking/Outbound-Connectivity.md",
+      "relevance": 0.92,
+      "summary": "This TSG covers common outbound connectivity issues including firewall configuration, proxy settings, and required endpoint access.",
+      "keywords": ["connectivity", "firewall", "proxy", "endpoint", "network"]
+    },
+    {
+      "title": "AKS Arc Certificate Expiration and Rotation",
+      "category": "AKS",
+      "url": "https://github.com/Azure/AzureLocal-Supportability/blob/main/TSG/AKS/cert-rotation.md",
+      "relevance": 0.88,
+      "summary": "Troubleshooting guide for certificate expiration issues in AKS Arc clusters, including automated and manual rotation procedures.",
+      "keywords": ["certificate", "expiration", "rotation", "x509", "TLS"]
+    },
+    {
+      "title": "MOC Agent Troubleshooting",
+      "category": "AKS",
+      "url": "https://github.com/Azure/AzureLocal-Supportability/blob/main/TSG/AKS/moc-agent-issues.md",
+      "relevance": 0.75,
+      "summary": "Diagnose and resolve issues with MOC Cloud Agent, Node Agent, and Host Agent services.",
+      "keywords": ["MOC", "agent", "cloud agent", "node agent", "host agent"]
+    },
+    {
+      "title": "Environment Validator Failures",
+      "category": "EnvironmentValidator",
+      "url": "https://github.com/Azure/AzureLocal-Supportability/blob/main/TSG/EnvironmentValidator/validation-failures.md",
+      "relevance": 0.68,
+      "summary": "Resolution steps for common environment validation failures during deployment, update, and scale-out operations.",
+      "keywords": ["validation", "environment checker", "prerequisites", "deployment"]
+    },
+    {
+      "title": "Arc Registration Issues",
+      "category": "ArcRegistration",
+      "url": "https://github.com/Azure/AzureLocal-Supportability/blob/main/TSG/ArcRegistration/registration-failures.md",
+      "relevance": 0.65,
+      "summary": "Troubleshoot Azure Arc registration failures including authentication, network, and permission issues.",
+      "keywords": ["Arc", "registration", "authentication", "Azure", "onboarding"]
+    }
+  ]
+}

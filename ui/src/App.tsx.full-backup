@@ -1,0 +1,1490 @@
+import {
+  useState,
+  useCallback,
+  useEffect,
+  type DragEvent,
+  type ChangeEvent,
+} from "react";
+import {
+  type Findings,
+  type Check,
+  validateFindings,
+  calculateSummary,
+} from "./lib/schema";
+import CheckCard from "./components/CheckCard";
+import ChatPanel from "./components/ChatPanel";
+import LearnPanel from "./components/LearnPanel";
+import { ArchitectureDiagram } from "./components/ArchitectureDiagram";
+
+interface AzureContext {
+  subscription: string;
+  subscriptionId: string;
+  resourceGroup: string;
+  clusterName: string;
+  connected: boolean;
+}
+
+interface ClusterInfo {
+  name: string;
+  resourceGroup: string;
+  location: string;
+  connectivityStatus: string;
+  provisioningState: string;
+  kubernetesVersion: string;
+  totalNodeCount: number;
+}
+
+interface AzureStatus {
+  authenticated: boolean;
+  azCliInstalled: boolean;
+  subscription?: { id: string; name: string };
+  user?: string;
+}
+
+interface ToolStatus {
+  id: string;
+  name: string;
+  description: string;
+  ready: boolean;
+  hint?: string | null;
+  models?: string[];
+}
+
+interface ToolsStatusResponse {
+  tools: ToolStatus[];
+  summary: {
+    ready: number;
+    total: number;
+    percentage: number;
+  };
+}
+
+function App() {
+  const [findings, setFindings] = useState<Findings | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [expandedChecks, setExpandedChecks] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState<Check["status"] | "all">("all");
+  const [mode, setMode] = useState<"dashboard" | "viewer" | "architecture">(
+    "dashboard",
+  );
+  const [running, setRunning] = useState<string | null>(null);
+  const [showConfig, setShowConfig] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [showLearn, setShowLearn] = useState(false);
+  const [showToolsStatus, setShowToolsStatus] = useState(false);
+  const [clusters, setClusters] = useState<ClusterInfo[]>([]);
+  const [loadingClusters, setLoadingClusters] = useState(false);
+  const [azureStatus, setAzureStatus] = useState<AzureStatus | null>(null);
+  const [azureStatusLoading, setAzureStatusLoading] = useState(true);
+  const [serverReachable, setServerReachable] = useState<boolean | null>(null);
+  const [toolsStatus, setToolsStatus] = useState<ToolsStatusResponse | null>(
+    null,
+  );
+  const [azureContext, setAzureContext] = useState<AzureContext>({
+    subscription: "",
+    subscriptionId: "",
+    resourceGroup: "",
+    clusterName: "",
+    connected: false,
+  });
+
+  const loadFindings = useCallback((data: unknown) => {
+    if (validateFindings(data)) {
+      // Calculate summary if not provided
+      if (!data.summary) {
+        data.summary = calculateSummary(data.checks);
+      }
+      setFindings(data);
+      setError(null);
+    } else {
+      setError(
+        "Invalid findings format. Please ensure the file matches the schema.",
+      );
+    }
+  }, []);
+
+  const handleFile = useCallback(
+    (file: File) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target?.result as string);
+          loadFindings(data);
+        } catch {
+          setError("Failed to parse JSON file.");
+        }
+      };
+      reader.onerror = () => setError("Failed to read file.");
+      reader.readAsText(file);
+    },
+    [loadFindings],
+  );
+
+  const handleDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setDragOver(false);
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    },
+    [handleFile],
+  );
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOver(false);
+  }, []);
+
+  const handleFileInput = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) handleFile(file);
+    },
+    [handleFile],
+  );
+
+  const toggleCheck = useCallback((id: string) => {
+    setExpandedChecks((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const exportBundle = useCallback(() => {
+    if (!findings) return;
+
+    const blob = new Blob([JSON.stringify(findings, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `findings-${findings.runId ?? "export"}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [findings]);
+
+  const filteredChecks =
+    findings?.checks.filter((c) => filter === "all" || c.status === filter) ??
+    [];
+
+  // MCP Server configuration - uses environment variable or defaults to 8080
+  const MCP_SERVER_URL =
+    import.meta.env.VITE_MCP_SERVER_URL || "http://127.0.0.1:8080";
+
+  // Load real clusters from Azure
+  const loadClusters = useCallback(async () => {
+    setLoadingClusters(true);
+    try {
+      const response = await fetch(`${MCP_SERVER_URL}/api/clusters`);
+      if (response.ok) {
+        setServerReachable(true); // If we can load clusters, server is reachable
+        const data = await response.json();
+        if (data.success) {
+          setClusters(data.clusters);
+        }
+      }
+    } catch {
+      console.log("Failed to load clusters");
+    } finally {
+      setLoadingClusters(false);
+    }
+  }, []);
+
+  // Check Azure CLI status on mount
+  const checkAzureStatus = useCallback(async () => {
+    console.log("[Azure] Checking status at", MCP_SERVER_URL);
+    setAzureStatusLoading(true);
+    try {
+      const response = await fetch(`${MCP_SERVER_URL}/api/status`, {
+        signal: AbortSignal.timeout(10000), // 10 second timeout
+      });
+      console.log("[Azure] Response status:", response.status);
+      setServerReachable(true);
+      if (response.ok) {
+        const status = await response.json();
+        console.log("[Azure] Status received:", status);
+        setAzureStatus(status);
+        if (status.authenticated) {
+          setAzureContext((prev) => ({
+            ...prev,
+            subscription: status.subscription?.name || "",
+            subscriptionId: status.subscription?.id || "",
+            connected: true,
+          }));
+          // Auto-load clusters if authenticated
+          loadClusters();
+        }
+      } else {
+        console.log("[Azure] Non-OK response:", response.statusText);
+      }
+    } catch (err) {
+      console.log("[Azure] MCP server not reachable:", err);
+      setServerReachable(false);
+    } finally {
+      setAzureStatusLoading(false);
+    }
+  }, [loadClusters]);
+
+  // Load tools status
+  const loadToolsStatus = useCallback(async () => {
+    try {
+      const response = await fetch(`${MCP_SERVER_URL}/api/tools/status`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setToolsStatus(data);
+        }
+      }
+    } catch {
+      console.log("Failed to load tools status");
+    }
+  }, []);
+
+  // Check Azure status and tools on component mount
+  useEffect(() => {
+    checkAzureStatus();
+    loadToolsStatus();
+  }, [checkAzureStatus, loadToolsStatus]);
+
+  // Environment Checker state
+  const [checkerStatus, setCheckerStatus] = useState<{
+    installed: boolean;
+    path?: string;
+    checking: boolean;
+    installing: boolean;
+  }>({ installed: false, checking: true, installing: false });
+
+  // Check Environment Checker status
+  const checkEnvChecker = useCallback(async () => {
+    setCheckerStatus((prev) => ({ ...prev, checking: true }));
+    try {
+      const response = await fetch(
+        `${MCP_SERVER_URL}/api/connectivity/checker-status`,
+      );
+      if (response.ok) {
+        const status = await response.json();
+        setCheckerStatus({
+          installed: status.installed,
+          path: status.path,
+          checking: false,
+          installing: false,
+        });
+      }
+    } catch {
+      setCheckerStatus((prev) => ({ ...prev, checking: false }));
+    }
+  }, []);
+
+  // Install Environment Checker
+  const installEnvChecker = useCallback(async () => {
+    setCheckerStatus((prev) => ({ ...prev, installing: true }));
+    setError(null);
+    try {
+      const response = await fetch(
+        `${MCP_SERVER_URL}/api/connectivity/install-checker`,
+        { method: "POST" },
+      );
+      const result = await response.json();
+      if (result.success) {
+        setCheckerStatus({
+          installed: true,
+          path: result.module?.Path,
+          checking: false,
+          installing: false,
+        });
+      } else {
+        setError(result.error || "Failed to install Environment Checker");
+        setCheckerStatus((prev) => ({ ...prev, installing: false }));
+      }
+    } catch (err) {
+      setError("Failed to install Environment Checker");
+      setCheckerStatus((prev) => ({ ...prev, installing: false }));
+    }
+  }, []);
+
+  // Check on mount
+  useEffect(() => {
+    checkEnvChecker();
+  }, [checkEnvChecker]);
+
+  // Progress state for streaming
+  const [progress, setProgress] = useState<{
+    message: string;
+    phase: string;
+    checksProcessed: number;
+  } | null>(null);
+
+  const runDiagnostic = useCallback(
+    async (type: "connectivity" | "validate") => {
+      setRunning(type);
+      setError(null);
+      setProgress(null);
+
+      try {
+        // For connectivity check, use SSE streaming endpoint
+        if (type === "connectivity") {
+          // Use EventSource for SSE streaming
+          const url = `${MCP_SERVER_URL}/api/connectivity/check/stream?mode=quick&install_checker=false`;
+          const eventSource = new EventSource(url);
+
+          return new Promise<void>((resolve, reject) => {
+            // Handle status events
+            eventSource.addEventListener("status", (event) => {
+              const data = JSON.parse(event.data);
+              setProgress({
+                message: data.message,
+                phase: data.phase || "running",
+                checksProcessed: 0,
+              });
+            });
+
+            // Handle progress events
+            eventSource.addEventListener("progress", (event) => {
+              const data = JSON.parse(event.data);
+              setProgress((prev) => ({
+                message: data.message,
+                phase: prev?.phase || "running",
+                checksProcessed:
+                  data.checksProcessed || (prev?.checksProcessed || 0) + 1,
+              }));
+            });
+
+            // Handle completion
+            eventSource.addEventListener("complete", (event) => {
+              const data = JSON.parse(event.data);
+              eventSource.close();
+              setProgress(null);
+
+              if (data.success && data.findings) {
+                setFindings(data.findings);
+              }
+              setRunning(null);
+              resolve();
+            });
+
+            // Handle errors
+            eventSource.addEventListener("error", (event) => {
+              eventSource.close();
+              setProgress(null);
+              setRunning(null);
+              // Check if it's a custom error event or connection error
+              if (event instanceof MessageEvent) {
+                const data = JSON.parse(event.data);
+                reject(new Error(data.error || "Connectivity check failed"));
+              } else {
+                reject(new Error("Connection to server lost"));
+              }
+            });
+
+            // Fallback: also listen for generic message if browser doesn't support custom events
+            eventSource.onmessage = (event) => {
+              try {
+                const data = JSON.parse(event.data);
+                if (data.type === "complete" && data.findings) {
+                  eventSource.close();
+                  setFindings(data.findings);
+                  setProgress(null);
+                  setRunning(null);
+                  resolve();
+                }
+              } catch {
+                // Ignore parse errors for keepalive messages
+              }
+            };
+
+            // Handle connection errors
+            eventSource.onerror = () => {
+              // Don't immediately reject - might just be the stream ending
+              setTimeout(() => {
+                if (eventSource.readyState === EventSource.CLOSED) {
+                  // Stream closed without complete event - fall back to non-streaming
+                  eventSource.close();
+                  setProgress({
+                    message: "Falling back to non-streaming mode...",
+                    phase: "fallback",
+                    checksProcessed: 0,
+                  });
+
+                  // Fall back to regular endpoint
+                  fetch(
+                    `${MCP_SERVER_URL}/api/connectivity/check?mode=quick&install_checker=false`,
+                  )
+                    .then((res) => res.json())
+                    .then((result) => {
+                      if (result.success) {
+                        setFindings(result.findings);
+                      } else {
+                        throw new Error(result.error || "Check failed");
+                      }
+                      setProgress(null);
+                      setRunning(null);
+                      resolve();
+                    })
+                    .catch((err) => {
+                      setProgress(null);
+                      setRunning(null);
+                      reject(err);
+                    });
+                }
+              }, 1000);
+            };
+          });
+        }
+
+        // For validate, use the cluster validation API
+        if (
+          type === "validate" &&
+          azureContext.clusterName &&
+          azureContext.resourceGroup
+        ) {
+          const response = await fetch(
+            `${MCP_SERVER_URL}/api/cluster/${encodeURIComponent(azureContext.clusterName)}/validate?resource_group=${encodeURIComponent(azureContext.resourceGroup)}`,
+          );
+
+          if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+          }
+
+          const result = await response.json();
+
+          if (!result.success) {
+            throw new Error(result.error || "Validation failed");
+          }
+
+          // Convert API response to Findings format
+          const validationFindings: Findings = {
+            version: "1.0.0",
+            target: "cluster",
+            timestamp: new Date().toISOString(),
+            runId: `validate-${Date.now()}`,
+            checks: result.checks.map(
+              (check: {
+                id: string;
+                title: string;
+                status: string;
+                severity: string;
+                evidence?: Record<string, unknown>;
+                hint?: string;
+              }) => ({
+                id: check.id,
+                title: check.title,
+                status: check.status as "pass" | "fail" | "warn" | "skipped",
+                severity: check.severity as "high" | "medium" | "low",
+                description: check.hint || `${check.title} check`,
+                evidence: check.evidence,
+              }),
+            ),
+            summary: result.summary,
+            metadata: {
+              cluster: result.cluster,
+              resourceGroup: result.resourceGroup,
+            },
+          };
+
+          setFindings(validationFindings);
+          setRunning(null);
+          return;
+        }
+
+        // Fallback - shouldn't reach here
+        throw new Error("Invalid diagnostic type or missing parameters");
+      } catch (err) {
+        console.error("Diagnostic error:", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to run diagnostic. Is the MCP server running?",
+        );
+        setRunning(null);
+      }
+    },
+    [azureContext],
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {/* Header */}
+      <header className="bg-gray-900 text-white py-4 px-6 shadow-lg">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">ArcOps MCP</h1>
+            <p className="text-gray-400 text-sm">
+              Azure Local & AKS Arc Diagnostics
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            {/* Connection indicator */}
+            <button
+              onClick={() => setShowConfig(true)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm border ${
+                azureStatusLoading
+                  ? "bg-blue-900/30 text-blue-400 border-blue-600"
+                  : azureContext.connected
+                    ? "bg-green-900/30 text-green-400 border-green-600"
+                    : "bg-yellow-900/30 text-yellow-400 border-yellow-600"
+              }`}
+            >
+              {azureStatusLoading ? (
+                <>
+                  <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                  Checking...
+                </>
+              ) : (
+                <>
+                  <span
+                    className={`w-2 h-2 rounded-full ${azureContext.connected ? "bg-green-400" : "bg-yellow-400"}`}
+                  />
+                  {azureContext.connected
+                    ? azureContext.subscription
+                    : "Not Connected"}
+                </>
+              )}
+            </button>
+
+            {/* Nav buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setMode("dashboard");
+                  setFindings(null);
+                }}
+                className={`px-4 py-2 rounded text-sm font-medium ${mode === "dashboard" ? "bg-blue-600" : "bg-gray-700 hover:bg-gray-600"}`}
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => setMode("architecture")}
+                className={`px-4 py-2 rounded text-sm font-medium ${mode === "architecture" ? "bg-blue-600" : "bg-gray-700 hover:bg-gray-600"}`}
+              >
+                🔌 Architecture
+              </button>
+              <button
+                onClick={() => setShowLearn(true)}
+                className="px-4 py-2 rounded text-sm font-medium bg-emerald-600 hover:bg-emerald-700"
+              >
+                📚 Learn
+              </button>
+              <button
+                onClick={() => setMode("viewer")}
+                className={`px-4 py-2 rounded text-sm font-medium ${mode === "viewer" ? "bg-blue-600" : "bg-gray-700 hover:bg-gray-600"}`}
+              >
+                Load Report
+              </button>
+              {findings && (
+                <button
+                  onClick={exportBundle}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-medium"
+                >
+                  Export
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Config Modal */}
+      {showConfig && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setShowConfig(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-bold mb-4">Azure Connection</h2>
+
+            {/* Azure Status */}
+            {/* Server Status - show first if not reachable AND no clusters loaded */}
+            {serverReachable === false && clusters.length === 0 && (
+              <div className="mb-4 p-4 rounded-lg bg-red-50 border border-red-200">
+                <p className="font-medium text-red-800">
+                  🔴 MCP Server Not Running
+                </p>
+                <p className="text-sm text-red-700 mt-1">
+                  Start the server in your terminal:
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <code className="flex-1 bg-gray-800 text-green-400 px-3 py-2 rounded text-sm font-mono">
+                    python -m cli server
+                  </code>
+                  <button
+                    onClick={() =>
+                      navigator.clipboard.writeText("python -m cli server")
+                    }
+                    className="px-2 py-2 bg-gray-200 hover:bg-gray-300 rounded text-xs"
+                    title="Copy to clipboard"
+                  >
+                    📋
+                  </button>
+                </div>
+                <button
+                  onClick={checkAzureStatus}
+                  className="mt-3 text-sm text-red-600 hover:underline"
+                >
+                  ↻ Retry connection
+                </button>
+              </div>
+            )}
+
+            {/* Azure Status - only show if server is reachable */}
+            {/* Azure Status - show if server is reachable OR we have clusters */}
+            {(serverReachable !== false || clusters.length > 0) && (
+              <div
+                className={`mb-4 p-4 rounded-lg ${
+                  azureStatusLoading
+                    ? "bg-blue-50 border border-blue-200"
+                    : azureStatus?.authenticated
+                      ? "bg-green-50 border border-green-200"
+                      : "bg-amber-50 border border-amber-200"
+                }`}
+              >
+                {azureStatusLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                    <p className="text-blue-700">
+                      Checking Azure CLI status...
+                    </p>
+                  </div>
+                ) : azureStatus?.authenticated ? (
+                  <>
+                    <p className="font-medium text-green-800">
+                      ✅ Azure CLI Authenticated
+                    </p>
+                    <p className="text-sm text-green-700">
+                      Subscription:{" "}
+                      <span className="font-mono">
+                        {azureStatus.subscription?.name}
+                      </span>
+                    </p>
+                    <p className="text-sm text-green-700">
+                      User: {azureStatus.user}
+                    </p>
+                  </>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="font-medium text-amber-800">
+                      ⚠️ Azure CLI Not Authenticated
+                    </p>
+                    <p className="text-sm text-amber-700">
+                      Run these commands in your terminal:
+                    </p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 bg-gray-800 text-green-400 px-3 py-2 rounded text-sm font-mono">
+                          az login
+                        </code>
+                        <button
+                          onClick={() =>
+                            navigator.clipboard.writeText("az login")
+                          }
+                          className="px-2 py-2 bg-gray-200 hover:bg-gray-300 rounded text-xs"
+                          title="Copy to clipboard"
+                        >
+                          📋
+                        </button>
+                      </div>
+                      <p className="text-xs text-amber-600">
+                        Then restart the MCP server (Ctrl+C and run again)
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Cluster Selection */}
+            {clusters.length > 0 ? (
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Select AKS Arc Cluster ({clusters.length} available)
+                </label>
+                <div className="max-h-64 overflow-y-auto border rounded-lg">
+                  {clusters.map((cluster) => (
+                    <div
+                      key={`${cluster.name}-${cluster.resourceGroup}`}
+                      onClick={() => {
+                        setAzureContext((prev) => ({
+                          ...prev,
+                          clusterName: cluster.name,
+                          resourceGroup: cluster.resourceGroup,
+                        }));
+                      }}
+                      className={`p-3 border-b cursor-pointer hover:bg-blue-50 ${
+                        azureContext.clusterName === cluster.name
+                          ? "bg-blue-100"
+                          : ""
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{cluster.name}</span>
+                        <span
+                          className={`text-xs px-2 py-1 rounded ${
+                            cluster.connectivityStatus === "Connected"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {cluster.connectivityStatus}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        RG: {cluster.resourceGroup} | K8s:{" "}
+                        {cluster.kubernetesVersion} | Nodes:{" "}
+                        {cluster.totalNodeCount}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : loadingClusters ? (
+              <div className="text-center py-4">
+                <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+                <p className="text-gray-600">Loading clusters from Azure...</p>
+              </div>
+            ) : (
+              <div className="text-center py-4 bg-gray-50 rounded-lg">
+                <p className="text-gray-600">No clusters found</p>
+                <button
+                  onClick={loadClusters}
+                  className="mt-2 text-blue-600 hover:underline text-sm"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Selected cluster info */}
+            {azureContext.clusterName && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm font-medium text-blue-800">Selected:</p>
+                <p className="text-sm text-blue-700">
+                  Cluster:{" "}
+                  <span className="font-mono">{azureContext.clusterName}</span>
+                </p>
+                <p className="text-sm text-blue-700">
+                  Resource Group:{" "}
+                  <span className="font-mono">
+                    {azureContext.resourceGroup}
+                  </span>
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setAzureContext((p) => ({ ...p, connected: true }));
+                  setShowConfig(false);
+                }}
+                disabled={!azureContext.clusterName}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                Use Selected Cluster
+              </button>
+              <button
+                onClick={() => setShowConfig(false)}
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tools Status Modal */}
+      {showToolsStatus && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setShowToolsStatus(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Tools & Dependencies</h2>
+              <button
+                onClick={loadToolsStatus}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                Refresh
+              </button>
+            </div>
+
+            {toolsStatus ? (
+              <div className="space-y-3">
+                {/* Summary bar */}
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-gray-700">
+                        {toolsStatus.summary.ready} of{" "}
+                        {toolsStatus.summary.total} tools ready
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {toolsStatus.summary.percentage}%
+                      </span>
+                    </div>
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all ${
+                          toolsStatus.summary.percentage >= 80
+                            ? "bg-green-500"
+                            : toolsStatus.summary.percentage >= 50
+                              ? "bg-yellow-500"
+                              : "bg-red-500"
+                        }`}
+                        style={{ width: `${toolsStatus.summary.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tool list */}
+                <div className="space-y-2 max-h-80 overflow-y-auto">
+                  {toolsStatus.tools.map((tool) => (
+                    <div
+                      key={tool.id}
+                      className={`p-3 rounded-lg border ${
+                        tool.ready
+                          ? "bg-green-50 border-green-200"
+                          : "bg-gray-50 border-gray-200"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              tool.ready ? "bg-green-500" : "bg-gray-400"
+                            }`}
+                          />
+                          <span className="font-medium text-gray-900">
+                            {tool.name}
+                          </span>
+                        </div>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded ${
+                            tool.ready
+                              ? "bg-green-100 text-green-700"
+                              : "bg-gray-200 text-gray-600"
+                          }`}
+                        >
+                          {tool.ready ? "Ready" : "Not Installed"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {tool.description}
+                      </p>
+                      {!tool.ready && tool.hint && (
+                        <p className="text-xs text-gray-500 mt-2 font-mono bg-gray-100 p-1 rounded">
+                          {tool.hint}
+                        </p>
+                      )}
+                      {tool.models && tool.models.length > 0 && (
+                        <p className="text-xs text-green-600 mt-1">
+                          Models: {tool.models.join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full" />
+              </div>
+            )}
+
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setShowToolsStatus(false)}
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <main className="max-w-6xl mx-auto p-6">
+        {/* Connection warning */}
+        {!azureContext.connected && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-300 rounded-lg flex items-center justify-between">
+            <div>
+              <p className="font-medium text-yellow-800">
+                ⚠️ Not connected to Azure
+              </p>
+              <p className="text-sm text-yellow-700">
+                Configure your Azure subscription and cluster to run real
+                diagnostics
+              </p>
+            </div>
+            <button
+              onClick={() => setShowConfig(true)}
+              className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm"
+            >
+              Configure
+            </button>
+          </div>
+        )}
+
+        {azureContext.connected && !findings && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-300 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-green-800">
+                  ✅ Connected to Azure via MCP Server
+                </p>
+                <p className="text-sm text-green-700">
+                  User:{" "}
+                  <span className="font-mono">
+                    {azureStatus?.user || "N/A"}
+                  </span>{" "}
+                  | Subscription:{" "}
+                  <span className="font-mono">{azureContext.subscription}</span>
+                </p>
+                {azureContext.clusterName && (
+                  <p className="text-sm text-green-700 mt-1">
+                    Selected Cluster:{" "}
+                    <span className="font-mono font-semibold">
+                      {azureContext.clusterName}
+                    </span>{" "}
+                    ({azureContext.resourceGroup})
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setShowConfig(true)}
+                className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Change Cluster
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mode === "dashboard" && !findings && (
+          <div className="space-y-8">
+            {/* Hero Section - Promote Chat */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-8 text-white shadow-lg">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold mb-2">Welcome to ArcOps</h2>
+                  <p className="text-blue-100 mb-4 max-w-xl">
+                    AI-powered diagnostics for Azure Local and AKS Arc. Use
+                    natural language to troubleshoot issues, search
+                    documentation, or run automated checks.
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => setShowChat(true)}
+                      className="inline-flex items-center gap-2 bg-white text-blue-700 px-5 py-2.5 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
+                    >
+                      <span>💬</span> Start Chat
+                    </button>
+                    <button
+                      onClick={() => runDiagnostic("connectivity")}
+                      disabled={!!running}
+                      className="inline-flex items-center gap-2 bg-blue-500/30 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-500/40 transition-colors border border-blue-400/30"
+                    >
+                      <span>🔍</span> Quick Scan
+                    </button>
+                  </div>
+                </div>
+                {/* Status indicators - Clickable */}
+                <div className="hidden md:flex flex-col gap-2 text-sm">
+                  <button
+                    onClick={() => setShowToolsStatus(true)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all hover:scale-105 ${
+                      toolsStatus
+                        ? toolsStatus.summary.percentage >= 80
+                          ? "bg-green-500/20"
+                          : toolsStatus.summary.percentage >= 50
+                            ? "bg-yellow-500/20"
+                            : "bg-red-500/20"
+                        : "bg-white/10"
+                    }`}
+                    title="Click to see all tools status"
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        toolsStatus
+                          ? toolsStatus.summary.percentage >= 80
+                            ? "bg-green-400"
+                            : toolsStatus.summary.percentage >= 50
+                              ? "bg-yellow-400"
+                              : "bg-red-400"
+                          : "bg-gray-400"
+                      }`}
+                    />
+                    <span className="text-white/90">
+                      {toolsStatus
+                        ? `${toolsStatus.summary.ready}/${toolsStatus.summary.total} Tools Ready`
+                        : "Checking..."}
+                    </span>
+                  </button>
+                  <div
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${
+                      azureContext.connected
+                        ? "bg-green-500/20"
+                        : "bg-yellow-500/20"
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        azureContext.connected
+                          ? "bg-green-400"
+                          : "bg-yellow-400"
+                      }`}
+                    />
+                    <span className="text-white/90">
+                      {azureContext.connected
+                        ? "Azure Connected"
+                        : "Not Connected"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions Grid */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                Diagnostic Tools
+              </h3>
+              <div className="grid md:grid-cols-3 gap-4">
+                {/* Connectivity Check */}
+                <div
+                  className={`bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md hover:border-blue-300 transition-all ${
+                    running === "connectivity" ? "ring-2 ring-blue-500" : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-xl">
+                      🌐
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">
+                        Connectivity
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        DNS, TLS, Endpoints
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Progress display */}
+                  {running === "connectivity" && progress && (
+                    <div className="mb-3 p-2 bg-blue-50 rounded-lg text-xs">
+                      <div className="flex items-center gap-2 text-blue-700">
+                        <div className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full" />
+                        <span className="truncate">{progress.message}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => runDiagnostic("connectivity")}
+                    disabled={!!running}
+                    className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${
+                      running === "connectivity"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-blue-600 text-white hover:bg-blue-700"
+                    }`}
+                  >
+                    {running === "connectivity" ? "Running..." : "Run Check"}
+                  </button>
+                </div>
+
+                {/* Cluster Validation */}
+                <div
+                  className={`bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md hover:border-blue-300 transition-all ${
+                    running === "validate" ? "ring-2 ring-blue-500" : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center text-xl">
+                      ☸️
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">
+                        Cluster Health
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        AKS Arc Validation
+                      </p>
+                    </div>
+                  </div>
+
+                  {clusters.length > 0 && (
+                    <select
+                      aria-label="Select AKS Arc cluster"
+                      title="Select AKS Arc cluster to validate"
+                      value={
+                        azureContext.clusterName
+                          ? `${azureContext.clusterName}|${azureContext.resourceGroup}`
+                          : ""
+                      }
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const [name, rg] = e.target.value.split("|");
+                          setAzureContext((prev) => ({
+                            ...prev,
+                            clusterName: name,
+                            resourceGroup: rg,
+                          }));
+                        }
+                      }}
+                      className="w-full mb-3 px-2 py-1.5 text-sm border rounded-lg bg-gray-50"
+                    >
+                      <option value="">Select cluster...</option>
+                      {clusters.map((c) => (
+                        <option
+                          key={`${c.name}-${c.resourceGroup}`}
+                          value={`${c.name}|${c.resourceGroup}`}
+                        >
+                          {c.name} (
+                          {c.connectivityStatus === "Connected" ? "🟢" : "🔴"})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  <button
+                    onClick={() => runDiagnostic("validate")}
+                    disabled={!!running || !azureContext.clusterName}
+                    className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${
+                      !azureContext.clusterName
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : running === "validate"
+                          ? "bg-purple-100 text-purple-700"
+                          : "bg-purple-600 text-white hover:bg-purple-700"
+                    }`}
+                  >
+                    {running === "validate"
+                      ? "Validating..."
+                      : azureContext.clusterName
+                        ? "Validate"
+                        : "Select Cluster"}
+                  </button>
+                </div>
+
+                {/* Load Report */}
+                <div
+                  className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
+                  onClick={() => setMode("viewer")}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-xl">
+                      📄
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">
+                        Load Report
+                      </h4>
+                      <p className="text-xs text-gray-500">
+                        View findings.json
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Import diagnostic results from file for analysis
+                  </p>
+                  <div className="w-full py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors text-center">
+                    Browse Files
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Environment Checker - Subtle */}
+            {!checkerStatus.installed && !checkerStatus.checking && (
+              <div className="bg-gray-50 rounded-lg p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-gray-400">ℹ️</span>
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Optional:</span> Microsoft
+                      Environment Checker provides deeper host validation
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={installEnvChecker}
+                  disabled={checkerStatus.installing}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  {checkerStatus.installing ? "Installing..." : "Install"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Results view - shown when findings exist */}
+        {findings && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Results</h2>
+                {findings.metadata && "cluster" in findings.metadata && (
+                  <p className="text-sm text-gray-600">
+                    Cluster:{" "}
+                    <span className="font-mono font-semibold">
+                      {findings.metadata["cluster"] as string}
+                    </span>
+                    {"resourceGroup" in findings.metadata && (
+                      <span>
+                        {" "}
+                        ({findings.metadata["resourceGroup"] as string})
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setFindings(null)}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                ← Back to Dashboard
+              </button>
+            </div>
+
+            {/* Summary cards */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+              <SummaryCard
+                label="Total"
+                value={findings.summary?.total ?? 0}
+                color="bg-gray-500"
+                active={filter === "all"}
+                onClick={() => setFilter("all")}
+              />
+              <SummaryCard
+                label="Passed"
+                value={findings.summary?.pass ?? 0}
+                color="bg-green-500"
+                active={filter === "pass"}
+                onClick={() => setFilter("pass")}
+              />
+              <SummaryCard
+                label="Failed"
+                value={findings.summary?.fail ?? 0}
+                color="bg-red-500"
+                active={filter === "fail"}
+                onClick={() => setFilter("fail")}
+              />
+              <SummaryCard
+                label="Warnings"
+                value={findings.summary?.warn ?? 0}
+                color="bg-yellow-500"
+                active={filter === "warn"}
+                onClick={() => setFilter("warn")}
+              />
+              <SummaryCard
+                label="Skipped"
+                value={findings.summary?.skipped ?? 0}
+                color="bg-gray-400"
+                active={filter === "skipped"}
+                onClick={() => setFilter("skipped")}
+              />
+            </div>
+
+            {/* Metadata */}
+            <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Target:</span>{" "}
+                  <span className="font-medium">{findings.target}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Run ID:</span>{" "}
+                  <span className="font-mono text-xs">
+                    {findings.runId ?? "N/A"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Time:</span>{" "}
+                  <span>{new Date(findings.timestamp).toLocaleString()}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Version:</span>{" "}
+                  <span>{findings.version}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Checks */}
+            <div className="space-y-3">
+              {filteredChecks.map((check) => (
+                <CheckCard
+                  key={check.id}
+                  check={check}
+                  expanded={expandedChecks.has(check.id)}
+                  onToggle={() => toggleCheck(check.id)}
+                />
+              ))}
+              {filteredChecks.length === 0 && (
+                <p className="text-center text-gray-500 py-8">
+                  No checks match the current filter.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* File drop zone for viewer mode */}
+        {mode === "viewer" && !findings && (
+          <div
+            className={`drop-zone ${dragOver ? "drag-over" : ""}`}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+          >
+            <div className="text-gray-500">
+              <svg
+                className="mx-auto h-12 w-12 mb-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                />
+              </svg>
+              <p className="text-lg mb-2">Drop findings.json here</p>
+              <p className="text-sm text-gray-400">or</p>
+              <label className="mt-2 inline-block px-4 py-2 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700">
+                Browse Files
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileInput}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* Architecture Diagram Mode */}
+        {mode === "architecture" && (
+          <div className="h-[calc(100vh-180px)]">
+            <ArchitectureDiagram
+              serverUrl={MCP_SERVER_URL}
+              activeTools={[]}
+              onToolClick={(toolId) => {
+                console.log("Tool clicked:", toolId);
+                setShowChat(true);
+              }}
+            />
+          </div>
+        )}
+
+        {error && (
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded text-red-700">
+            {error}
+          </div>
+        )}
+      </main>
+
+      {/* Chat Panel - Full width centered modal */}
+      {showChat && (
+        <div className="fixed inset-0 z-50">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => setShowChat(false)}
+          />
+          {/* Panel - centered and larger */}
+          <div className="absolute inset-4 md:inset-8 lg:inset-12 xl:inset-16 shadow-2xl animate-slide-in-right">
+            <ChatPanel
+              serverUrl={MCP_SERVER_URL}
+              onClose={() => setShowChat(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Learn Panel - Full width modal */}
+      {showLearn && (
+        <div className="fixed inset-0 z-50">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => setShowLearn(false)}
+          />
+          {/* Panel - centered and larger */}
+          <div className="absolute inset-8 shadow-2xl animate-slide-in-right">
+            <LearnPanel
+              serverUrl={MCP_SERVER_URL}
+              onClose={() => setShowLearn(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Floating chat button (when panel is closed) */}
+      {!showChat && !showLearn && (
+        <button
+          onClick={() => setShowChat(true)}
+          className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 hover:scale-110 transition-all flex items-center justify-center z-40"
+          title="Open ArcOps Chat"
+        >
+          <span className="text-2xl">💬</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+interface SummaryCardProps {
+  label: string;
+  value: number;
+  color: string;
+  active: boolean;
+  onClick: () => void;
+}
+
+function SummaryCard({
+  label,
+  value,
+  color,
+  active,
+  onClick,
+}: SummaryCardProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={`p-4 rounded-lg text-white transition-all ${color} ${
+        active
+          ? "ring-2 ring-offset-2 ring-gray-900"
+          : "opacity-80 hover:opacity-100"
+      }`}
+    >
+      <div className="text-3xl font-bold">{value}</div>
+      <div className="text-sm opacity-90">{label}</div>
+    </button>
+  );
+}
+
+export default App;

@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from server.tools.aks_arc_validate import AksArcValidateTool
 from server.tools.arc_gateway_egress_check import ArcGatewayEgressCheckTool
 from server.tools.azlocal_envcheck_wrap import AzLocalEnvCheckWrapTool
+from server.tools.azlocal_tsg_tool import AzLocalTsgTool
 from server.tools.diagnostics_bundle import DiagnosticsBundleTool
 
 app = typer.Typer(
@@ -231,6 +232,59 @@ def validate(
     typer.echo(f"📄 Output: {output_file}")
 
     if summary.get("fail", 0) > 0:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def tsg(
+    query: Annotated[
+        str,
+        typer.Option("--query", "-q", help="Error message or keyword to search"),
+    ],
+    out: Annotated[
+        Path,
+        typer.Option("--out", "-o", help="Output directory for results"),
+    ] = Path("./artifacts"),
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Simulate using fixture data"),
+    ] = False,
+) -> None:
+    """
+    Search Azure Local troubleshooting guides (TSGs).
+
+    Searches for TSGs matching the given error message or keyword.
+    Requires AzLocalTSGTool PowerShell module.
+    """
+    typer.echo(f"🔍 Searching TSGs for: {query}")
+
+    tool = AzLocalTsgTool()
+    result = asyncio.run(
+        tool.execute(
+            {
+                "query": query,
+                "dryRun": dry_run,
+            }
+        )
+    )
+
+    if result.get("success"):
+        results = result.get("results", [])
+        typer.echo(f"[OK] Found {len(results)} matching TSGs")
+
+        for i, tsg_item in enumerate(results[:5], 1):
+            title = tsg_item.get("Title", tsg_item.get("title", "Unknown"))
+            typer.echo(f"   {i}. {title}")
+
+        # Save full results to file
+        output_file = write_output(result, out, "tsg_search")
+        typer.echo(f"📄 Full results: {output_file}")
+    else:
+        error = result.get("error", "Unknown error")
+        hint = result.get("hint", "")
+        typer.echo(f"[ERROR] TSG search failed: {error}", err=True)
+        if hint:
+            typer.echo(f"   Hint: {hint}", err=True)
         raise typer.Exit(code=1)
 
 

@@ -1,0 +1,50 @@
+{
+  "description": "Sample output from Test-SupportAksArcKnownIssues for dry run testing",
+  "results": [
+    {
+      "Name": "Failover Cluster Service",
+      "Status": "Passed",
+      "Details": "Failover Cluster Service is running and responsive"
+    },
+    {
+      "Name": "MOC Cloud Agent",
+      "Status": "Passed",
+      "Details": "MOC Cloud Agent service is running"
+    },
+    {
+      "Name": "MOC Node Agent",
+      "Status": "Passed",
+      "Details": "MOC Node Agent service is running on all nodes"
+    },
+    {
+      "Name": "MOC Host Agent",
+      "Status": "Passed",
+      "Details": "MOC Host Agent service is running"
+    },
+    {
+      "Name": "MOC Version Validation",
+      "Status": "Passed",
+      "Details": "MOC version 1.2.3 is current"
+    },
+    {
+      "Name": "Certificate Expiration",
+      "Status": "Passed",
+      "Details": "All certificates are valid. Earliest expiration: 2026-06-15"
+    },
+    {
+      "Name": "Gallery Images State",
+      "Status": "Passed",
+      "Details": "No gallery images stuck in deleting state"
+    },
+    {
+      "Name": "VM Pending State",
+      "Status": "Passed",
+      "Details": "No VMs stuck in pending state"
+    },
+    {
+      "Name": "VMMS Responsiveness",
+      "Status": "Passed",
+      "Details": "Virtual Machine Management Service is responsive"
+    }
+  ]
+}
