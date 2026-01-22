@@ -36,7 +36,8 @@ class AzLocalTsgTool(BaseTool):
     name = "azlocal.tsg.search"
     description = (
         "Search Azure Local troubleshooting guides using AzLocalTSGTool. "
-        "The module handles GitHub indexing and local caching."
+        "The module handles GitHub indexing and local caching. "
+        "Returns titles, GitHub URLs, fix steps, and relevant documentation."
     )
     input_schema = {
         "type": "object",
@@ -45,11 +46,6 @@ class AzLocalTsgTool(BaseTool):
             "query": {
                 "type": "string",
                 "description": "Error message, symptom, or keyword to search",
-            },
-            "dryRun": {
-                "type": "boolean",
-                "default": False,
-                "description": "Return fixture data without running actual search",
             },
         },
     }
@@ -158,16 +154,18 @@ class AzLocalTsgTool(BaseTool):
             escaped_query = query.replace("'", "''")
 
             # Use pwsh (PowerShell 7) since the module requires it
+            # Suppress warning output by redirecting all non-JSON output
             ps_cmd = f"""
-            Import-Module AzLocalTSGTool -Force -ErrorAction SilentlyContinue
-            $results = Get-AzLocalTSGFix -ErrorText '{escaped_query}' -Json 2>$null | ConvertFrom-Json
-            $results | ConvertTo-Json -Depth 10
+            $WarningPreference = 'SilentlyContinue'
+            Import-Module AzLocalTSGTool -Force -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
+            $results = Get-AzLocalTSGFix -ErrorText '{escaped_query}' -Json -WarningAction SilentlyContinue 2>$null | ConvertFrom-Json
+            if ($results) {{ $results | ConvertTo-Json -Depth 10 -Compress }} else {{ '[]' }}
             """
 
             result = subprocess.run(
                 ["pwsh", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
                 capture_output=True,
-                text=True,
+                text=False,  # Use bytes to avoid encoding issues
                 timeout=120,
             )
 
@@ -175,9 +173,25 @@ class AzLocalTsgTool(BaseTool):
 
             if result.returncode == 0:
                 try:
-                    search_results = (
-                        json.loads(result.stdout.strip()) if result.stdout.strip() else []
+                    # Decode with UTF-8, replacing any invalid chars
+                    stdout = (
+                        result.stdout.decode("utf-8", errors="replace").strip()
+                        if result.stdout
+                        else ""
                     )
+
+                    # Find JSON start (either [ for array or { for object)
+                    json_start = -1
+                    for i, c in enumerate(stdout):
+                        if c in "[{":
+                            json_start = i
+                            break
+
+                    if json_start >= 0:
+                        json_text = stdout[json_start:]
+                        search_results = json.loads(json_text)
+                    else:
+                        search_results = []
 
                     # Ensure it's a list
                     if isinstance(search_results, dict):
@@ -209,16 +223,17 @@ class AzLocalTsgTool(BaseTool):
                         "query": query,
                         "resultCount": 0,
                         "results": [],
-                        "rawOutput": result.stdout[:2000] if result.stdout else None,
+                        "rawOutput": stdout[:2000] if stdout else None,
                         "note": "Search completed but no structured results returned",
                         "durationMs": duration_ms,
                     }
             else:
+                stderr = result.stderr.decode("utf-8", errors="replace") if result.stderr else ""
                 return {
                     "success": False,
                     "query": query,
                     "results": [],
-                    "error": result.stderr[:1000] if result.stderr else "Search failed",
+                    "error": stderr[:1000] if stderr else "Search failed",
                     "durationMs": duration_ms,
                 }
 

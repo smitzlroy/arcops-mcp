@@ -52,14 +52,25 @@ WHEN TO USE TOOLS:
 - Create bundle for support case → arcops.diagnostics.bundle
 - Learn about a topic → arcops.explain
 
+TSG SEARCH RESPONSE FORMAT:
+When azlocal.tsg.search returns results, present them in this format:
+1. State you found relevant troubleshooting guide(s)
+2. For the TOP match (highest confidence):
+   - Show the TSG title
+   - Provide the direct GitHub link from the "Url" field
+   - List ALL fix steps from "FixSteps" array (include both Text and Code steps)
+   - For Code steps, format them as PowerShell code blocks
+3. If there are additional relevant matches, briefly mention them with their titles and links
+4. Always include the GitHub URL so users can read the full article
+
 IMPORTANT:
 - ALWAYS use azlocal.tsg.search when the user mentions ANY error, failure, or problem text
-- Pass the user's exact error message to the tool's errorText parameter
+- Pass the user's exact error message to the tool's query parameter
 - ALWAYS use tools to gather real diagnostic information
 - Do NOT make up diagnostic results or error codes
-- After running a tool, summarize findings clearly for the user
+- After running a tool, present the ACTUAL data returned (URLs, steps, code)
 - If a tool fails, explain the error and suggest alternatives
-- Be concise but thorough in your responses
+- Be thorough - include all fix steps from the TSG, not just a summary
 """
 
 
@@ -118,11 +129,16 @@ class ChatService:
         Initialize the chat service.
 
         Args:
-            endpoint: Foundry Local endpoint (e.g., http://127.0.0.1:5272)
+            endpoint: Foundry Local endpoint (e.g., http://127.0.0.1:52621/v1)
             model: Model alias (e.g., phi-4-mini)
         """
+        # Normalize endpoint - remove trailing /v1 if present since OpenAI client adds it
+        base_url = endpoint.rstrip("/")
+        if base_url.endswith("/v1"):
+            base_url = base_url[:-3]
+
         self.client = OpenAI(
-            base_url=f"{endpoint}/v1", api_key="foundry-local"  # Foundry doesn't require a real key
+            base_url=f"{base_url}/v1", api_key="foundry-local"  # Foundry doesn't require a real key
         )
         self.model = model
         self.tools_schema = get_tools_schema()
@@ -196,7 +212,8 @@ class ChatService:
                     except json.JSONDecodeError:
                         tool_args = {}
 
-                    # Add dry_run flag if specified
+                    # Note: dryRun is only added if explicitly requested via API
+                    # The tool schemas no longer expose dryRun to prevent LLM misuse
                     if dry_run:
                         tool_args["dryRun"] = True
 

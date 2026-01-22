@@ -199,7 +199,9 @@ async def chat(request: ChatRequest) -> ChatResponse:
         # Try to initialize with current running model
         status = model_manager.get_status()
         if status["model_running"] and status["endpoint"]:
-            _chat_service = ChatService(endpoint=status["endpoint"], model=status["current_model"])
+            # Use model_id (full Foundry model ID) for API calls, not the alias
+            model_id = status.get("current_model_id") or status["current_model"]
+            _chat_service = ChatService(endpoint=status["endpoint"], model=model_id)
         else:
             raise HTTPException(status_code=503, detail="No model is running. Start a model first.")
 

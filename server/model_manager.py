@@ -77,6 +77,7 @@ class ModelManager:
     def __init__(self):
         self._endpoint: str | None = None
         self._current_model: str | None = None
+        self._current_model_id: str | None = None  # Full model ID for API calls
 
     @property
     def endpoint(self) -> str | None:
@@ -257,15 +258,17 @@ class ModelManager:
             manager = FoundryLocalManager()
             loaded = manager.list_loaded_models()
             if loaded:
-                # loaded[0] is a FoundryModelInfo object with an alias attribute
+                # loaded[0] is a FoundryModelInfo object with alias and id attributes
                 model_info = loaded[0]
                 alias = (
                     model_info.alias
                     if hasattr(model_info, "alias")
                     else str(model_info).split("-instruct")[0].lower()
                 )
+                model_id = model_info.id if hasattr(model_info, "id") else alias
                 self._endpoint = manager.endpoint
                 self._current_model = alias
+                self._current_model_id = model_id  # Store the full model ID for API calls
                 return alias
         except Exception as e:
             logger.debug(f"FoundryLocalManager check failed: {e}")
@@ -332,6 +335,7 @@ class ModelManager:
         return {
             "model_running": running is not None,
             "current_model": running,
+            "current_model_id": self._current_model_id,  # Full ID for API calls
             "endpoint": self._endpoint,
         }
 
