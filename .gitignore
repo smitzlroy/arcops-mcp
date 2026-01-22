@@ -95,3 +95,21 @@ tmp/
 temp/
 *.tmp
 *.temp
+# Large binary files - don't commit to repo
+*.pptx
+*.pdf
+*.docx
+*.xlsx
+JumpstartGems525/
+diagrams/Diagrams/
+
+# Backup files
+*.backup
+*.bak
+*.full-backup
+*.tsx.full-backup
+App.simple.tsx
+
+# Results/artifacts (use fixtures for tests instead)
+results/
+artifacts/
