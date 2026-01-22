@@ -18,6 +18,13 @@ from typing import Annotated, Optional
 
 import typer
 
+# Configure UTF-8 encoding for Windows
+if sys.platform == "win32":
+    import codecs
+
+    sys.stdout.reconfigure(encoding="utf-8") if hasattr(sys.stdout, "reconfigure") else None
+    sys.stderr.reconfigure(encoding="utf-8") if hasattr(sys.stderr, "reconfigure") else None
+
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -101,7 +108,7 @@ def envcheck(
         f"{summary.get('warn', 0)} warn, "
         f"{summary.get('skipped', 0)} skipped"
     )
-    typer.echo(f"📄 Output: {output_file}")
+    typer.echo(f"   Output: {output_file}")
 
     # Exit with error if any failures
     if summary.get("fail", 0) > 0:
@@ -141,7 +148,7 @@ def egress(
     Tests TLS/Proxy/FQDN reachability for configured endpoints.
     Supports corporate CA trust and HTTP(S)_PROXY.
     """
-    typer.echo(f"🌐 Checking egress connectivity (dry_run={dry_run})")
+    typer.echo(f"[*] Checking egress connectivity (dry_run={dry_run})")
 
     category_list = categories.split(",") if categories else None
 
@@ -256,7 +263,7 @@ def tsg(
     Searches for TSGs matching the given error message or keyword.
     Requires AzLocalTSGTool PowerShell module.
     """
-    typer.echo(f"🔍 Searching TSGs for: {query}")
+    typer.echo(f"[*] Searching TSGs for: {query}")
 
     tool = AzLocalTsgTool()
     result = asyncio.run(
@@ -278,7 +285,7 @@ def tsg(
 
         # Save full results to file
         output_file = write_output(result, out, "tsg_search")
-        typer.echo(f"📄 Full results: {output_file}")
+        typer.echo(f"   Full results: {output_file}")
     else:
         error = result.get("error", "Unknown error")
         hint = result.get("hint", "")
@@ -317,7 +324,7 @@ def create_bundle(
     Bundles findings.json, raw logs, and SHA256 manifest into a ZIP file.
     Supports optional signing.
     """
-    typer.echo(f"📦 Creating diagnostics bundle")
+    typer.echo(f"[*] Creating diagnostics bundle")
 
     input_paths = [p.strip() for p in inputs.split(",")]
 
@@ -338,11 +345,11 @@ def create_bundle(
     typer.echo(f"   Run ID: {result.get('runId')}")
     typer.echo(f"   Files: {result.get('fileCount')}")
     typer.echo(f"   Total checks: {result.get('totalChecks')}")
-    typer.echo(f"📦 Bundle: {result.get('bundlePath')}")
-    typer.echo(f"📋 Manifest: {result.get('manifestPath')}")
+    typer.echo(f"   Bundle: {result.get('bundlePath')}")
+    typer.echo(f"   Manifest: {result.get('manifestPath')}")
 
     if sign:
-        typer.echo(f"🔐 Signature: {result.get('signaturePath', 'N/A')}")
+        typer.echo(f"   Signature: {result.get('signaturePath', 'N/A')}")
 
 
 @app.command()
@@ -365,7 +372,7 @@ def export(
 
     Supports JSON (default), CSV, and HTML export formats.
     """
-    typer.echo(f"📤 Exporting findings to {format}")
+    typer.echo(f"[*] Exporting findings to {format}")
 
     if not findings.exists():
         typer.echo(f"[ERROR] Findings file not found: {findings}", err=True)
@@ -503,7 +510,7 @@ def server(
 
     Runs the FastAPI-based MCP server for tool invocation via HTTP.
     """
-    typer.echo(f"🚀 Starting MCP server on {host}:{port}")
+    typer.echo(f"Starting MCP server on {host}:{port}")
 
     import uvicorn
 

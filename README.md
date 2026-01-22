@@ -165,29 +165,7 @@ ArcOps uses [Foundry Local](https://github.com/microsoft/foundry-local) to run A
 | `phi-4-mini` | 3.6 GB | ✅ Good balance | ✅ |
 | `qwen2.5-0.5b` | 520 MB | ⚠️ Limited | ✅ (with assist) |
 
-**Recommended:** Use `qwen2.5-1.5b` or larger for reliable tool selection.
-
-## 📁 Project Structure
-
-```
-arcops-mcp/
-├── cli/                    # Command-line interface
-│   ├── __main__.py         # CLI entry point
-├── server/
-│   ├── main.py             # FastAPI + MCP server
-│   ├── api_routes.py       # REST + Chat endpoints
-│   └── tools/              # MCP tool implementations
-│       ├── arc_connectivity_check.py
-│       ├── aks_arc_validate.py
-│       ├── azlocal_tsg_tool.py
-│       └── diagnostics_bundle.py
-├── ui/                     # React/Vite web interface
-│   └── src/components/
-│       ├── ChatPanel.tsx   # Main chat interface
-│       └── LiveToolVisualization.tsx
-├── schemas/                # JSON schemas
-└── tests/                  # Test suite
-```
+**Recommended:** Use `phi-4-mini` or `qwen2.5-7b` for reliable tool selection.
 
 ## 🔒 Privacy & Security
 
@@ -203,35 +181,9 @@ arcops-mcp/
 - [Privacy & Security](docs/PRIVACY_SECURITY.md) — Data handling
 - [Sources](docs/SOURCES.md) — Microsoft documentation links
 
-## 🧪 Development
-
-```powershell
-# Install dev dependencies
-pip install -e ".[dev]"
-
-# Run tests
-pytest tests/ -v --cov=server --cov=cli
-
-# Format code
-black server/ cli/ tests/
-isort server/ cli/ tests/
-
-# Type check
-mypy server/ cli/
-
-# Build UI
-cd ui && npm run build
-```
-
 ## 🤝 Contributing
 
 Contributions welcome! Please read our contributing guidelines and submit PRs.
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and linting
-5. Submit a pull request
 
 ## 📄 License
 

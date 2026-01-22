@@ -101,9 +101,10 @@ class AzLocalTsgTool(BaseTool):
     def _check_module_installed(self) -> dict[str, Any]:
         """Check if AzLocalTSGTool PowerShell module is installed."""
         try:
+            # Use pwsh (PowerShell 7) since the module requires it
             result = subprocess.run(
                 [
-                    "powershell",
+                    "pwsh",
                     "-Command",
                     "Get-Module -ListAvailable AzLocalTSGTool | "
                     "Select-Object Name, Version, Path | ConvertTo-Json",
@@ -140,8 +141,8 @@ class AzLocalTsgTool(BaseTool):
         start_time: float,
         progress_callback: ProgressCallback | None = None,
     ) -> dict[str, Any]:
-        """Run Search-AzLocalTSG and return results."""
-        logger.info("Running Search-AzLocalTSG for query: %s", query)
+        """Run Get-AzLocalTSGFix and return results."""
+        logger.info("Running Get-AzLocalTSGFix for query: %s", query)
 
         if progress_callback:
             await progress_callback(
@@ -156,14 +157,15 @@ class AzLocalTsgTool(BaseTool):
             # Escape the query for PowerShell
             escaped_query = query.replace("'", "''")
 
+            # Use pwsh (PowerShell 7) since the module requires it
             ps_cmd = f"""
-            Import-Module AzLocalTSGTool -Force
-            $results = Search-AzLocalTSG -Query '{escaped_query}'
+            Import-Module AzLocalTSGTool -Force -ErrorAction SilentlyContinue
+            $results = Get-AzLocalTSGFix -ErrorText '{escaped_query}' -Json 2>$null | ConvertFrom-Json
             $results | ConvertTo-Json -Depth 10
             """
 
             result = subprocess.run(
-                ["powershell", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
+                ["pwsh", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
                 capture_output=True,
                 text=True,
                 timeout=120,

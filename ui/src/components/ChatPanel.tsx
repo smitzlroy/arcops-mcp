@@ -451,62 +451,96 @@ export function ChatPanel({ serverUrl, onClose }: ChatPanelProps) {
   const startModel = async () => {
     const model = availableModels.find((m) => m.id === selectedModel);
     const needsDownload = model && !model.downloaded;
-    
+
     setModelAction("starting");
-    
-    // Add message to chat about what's happening
-    if (needsDownload) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `⬇️ Downloading ${model.name} (${model.size})...\n\nThis may take a few minutes depending on your connection. The model will start automatically once downloaded.`,
-          timestamp: new Date(),
-        },
-      ]);
-    } else {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `▶️ Starting ${model?.name || selectedModel}...`,
-          timestamp: new Date(),
-        },
-      ]);
-    }
-    
+
+    // Add initial message
+    const initialMsg = needsDownload
+      ? `⬇️ Downloading ${model.name} (${model.size})...`
+      : `▶️ Starting ${model?.name || selectedModel}...`;
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content: initialMsg,
+        timestamp: new Date(),
+      },
+    ]);
+
     try {
-      const response = await fetch(`${serverUrl}/api/foundry/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model_id: selectedModel }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        // Success message
+      // Use EventSource for streaming
+      const eventSource = new EventSource(
+        `${serverUrl}/api/foundry/start/stream?model_id=${encodeURIComponent(selectedModel)}`,
+      );
+
+      let outputBuffer = initialMsg + "\n\n";
+
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "output") {
+          // Append real-time output from Foundry CLI
+          outputBuffer += data.message;
+
+          // Update the message in real-time
+          setMessages((prev) => {
+            const newMessages = [...prev];
+            newMessages[newMessages.length - 1] = {
+              role: "assistant",
+              content: outputBuffer,
+              timestamp: new Date(),
+            };
+            return newMessages;
+          });
+        } else if (data.type === "complete") {
+          eventSource.close();
+
+          // Add success message
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: `✅ ${model?.name || selectedModel} is now running! You can start chatting.`,
+              timestamp: new Date(),
+            },
+          ]);
+
+          // Refresh status
+          checkChatStatus();
+          loadAvailableModels();
+          setShowModelConfig(false);
+          setModelAction(null);
+        } else if (data.type === "error") {
+          eventSource.close();
+
+          // Show error
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: `❌ Failed to start model: ${data.message}`,
+              timestamp: new Date(),
+            },
+          ]);
+          setModelAction(null);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error("EventSource error:", error);
+        eventSource.close();
+
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            content: `✅ ${model?.name || selectedModel} is now running! You can start chatting.`,
+            content: `❌ Connection error during model start. Check that the MCP server is running.`,
             timestamp: new Date(),
           },
         ]);
-        // Refresh status
-        await checkChatStatus();
-        await loadAvailableModels();
-        setShowModelConfig(false);
-      } else {
-        // Show error in chat
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: `⚠️ Failed to start model: ${data.error}\n\n${data.hint ? `💡 ${data.hint}` : ""}`,
-            timestamp: new Date(),
-          },
-        ]);
-      }
+        setModelAction(null);
+      };
     } catch (e) {
       console.error("Failed to start model:", e);
       setMessages((prev) => [
@@ -517,7 +551,6 @@ export function ChatPanel({ serverUrl, onClose }: ChatPanelProps) {
           timestamp: new Date(),
         },
       ]);
-    } finally {
       setModelAction(null);
     }
   };

@@ -2105,9 +2105,63 @@ async def list_available_models() -> dict[str, Any]:
     return _get_foundry_models()
 
 
+@router.post("/foundry/start/stream")
+async def start_foundry_model_stream(request: Request) -> StreamingResponse:
+    """Start a Foundry Local model with streaming progress output."""
+    body = await request.json()
+    model_id = body.get("model_id", "qwen2.5-1.5b")
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        import subprocess
+        import asyncio
+
+        try:
+            yield f"data: {json.dumps({'type': 'info', 'message': f'Starting {model_id}...'})}\n\n"
+
+            # Run foundry model run with live output
+            process = subprocess.Popen(
+                ["foundry", "model", "run", model_id],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                encoding="utf-8",
+                errors="replace",
+            )
+
+            # Stream output line by line
+            if process.stdout:
+                for line in iter(process.stdout.readline, ""):
+                    if line:
+                        line = line.rstrip()
+                        yield f"data: {json.dumps({'type': 'output', 'message': line})}\n\n"
+                        await asyncio.sleep(0)  # Yield control
+
+            # Wait for process to complete
+            returncode = process.wait()
+
+            if returncode == 0:
+                yield f"data: {json.dumps({'type': 'complete', 'message': f'✅ {model_id} is now running!'})}\n\n"
+            else:
+                yield f"data: {json.dumps({'type': 'error', 'message': f'❌ Failed to start model (exit code {returncode})'})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': f'❌ Error: {str(e)}'})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.post("/foundry/start")
 async def start_foundry_model(request: dict[str, Any]) -> dict[str, Any]:
-    """Start a Foundry Local model."""
+    """Start a Foundry Local model (non-streaming fallback)."""
     model_id = request.get("model_id", "qwen2.5-1.5b")  # Default to 1.5b for better tool selection
 
     try:
