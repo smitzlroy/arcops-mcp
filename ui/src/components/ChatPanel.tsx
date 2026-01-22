@@ -449,7 +449,32 @@ export function ChatPanel({ serverUrl, onClose }: ChatPanelProps) {
   };
 
   const startModel = async () => {
+    const model = availableModels.find((m) => m.id === selectedModel);
+    const needsDownload = model && !model.downloaded;
+    
     setModelAction("starting");
+    
+    // Add message to chat about what's happening
+    if (needsDownload) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `⬇️ Downloading ${model.name} (${model.size})...\n\nThis may take a few minutes depending on your connection. The model will start automatically once downloaded.`,
+          timestamp: new Date(),
+        },
+      ]);
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `▶️ Starting ${model?.name || selectedModel}...`,
+          timestamp: new Date(),
+        },
+      ]);
+    }
+    
     try {
       const response = await fetch(`${serverUrl}/api/foundry/start`, {
         method: "POST",
@@ -458,6 +483,15 @@ export function ChatPanel({ serverUrl, onClose }: ChatPanelProps) {
       });
       const data = await response.json();
       if (data.success) {
+        // Success message
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: `✅ ${model?.name || selectedModel} is now running! You can start chatting.`,
+            timestamp: new Date(),
+          },
+        ]);
         // Refresh status
         await checkChatStatus();
         await loadAvailableModels();
@@ -475,6 +509,14 @@ export function ChatPanel({ serverUrl, onClose }: ChatPanelProps) {
       }
     } catch (e) {
       console.error("Failed to start model:", e);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `❌ Failed to start model: ${e}\n\n💡 Make sure Foundry Local is installed and the MCP server is running.`,
+          timestamp: new Date(),
+        },
+      ]);
     } finally {
       setModelAction(null);
     }
@@ -998,8 +1040,14 @@ export function ChatPanel({ serverUrl, onClose }: ChatPanelProps) {
                       <span className="hidden sm:inline">
                         {availableModels.find((m) => m.id === selectedModel)
                           ?.downloaded
-                          ? "Starting"
-                          : "Downloading"}
+                          ? "Starting..."
+                          : "Downloading..."}
+                      </span>
+                      <span className="sm:hidden">
+                        {availableModels.find((m) => m.id === selectedModel)
+                          ?.downloaded
+                          ? "Start..."
+                          : "DL..."}
                       </span>
                     </>
                   ) : (
