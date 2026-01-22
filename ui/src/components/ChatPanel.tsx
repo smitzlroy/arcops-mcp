@@ -417,17 +417,32 @@ export function ChatPanel({ serverUrl, onClose }: ChatPanelProps) {
       const response = await fetch(`${serverUrl}/api/foundry/models`);
       const data = await response.json();
       console.log("Foundry models response:", data);
-      if (data.success && data.models) {
-        setAvailableModels(data.models);
-        // Select first loaded model or recommended
-        const loadedModel = data.models.find((m: FoundryModel) => m.loaded);
-        const recommended = data.models.find(
-          (m: FoundryModel) => m.recommended,
-        );
-        setSelectedModel(loadedModel?.id || recommended?.id || "qwen2.5-1.5b");
+
+      // Always set models array, even if empty
+      const models =
+        data.success && Array.isArray(data.models) ? data.models : [];
+      setAvailableModels(models);
+
+      // If we have models, select the best one
+      if (models.length > 0) {
+        const loadedModel = models.find((m: FoundryModel) => m.loaded);
+        const recommended = models.find((m: FoundryModel) => m.recommended);
+        setSelectedModel(loadedModel?.id || recommended?.id || models[0].id);
       }
     } catch (err) {
       console.error("Failed to load models:", err);
+      // Fallback: set minimal model list
+      setAvailableModels([
+        {
+          id: "qwen2.5-1.5b",
+          name: "Qwen 2.5 1.5B",
+          size: "1.25 GB",
+          recommended: true,
+          downloaded: false,
+          loaded: false,
+          supportsTools: true,
+        },
+      ]);
     } finally {
       setModelsLoading(false);
     }
@@ -934,57 +949,18 @@ export function ChatPanel({ serverUrl, onClose }: ChatPanelProps) {
                 >
                   {modelsLoading ? (
                     <option>Loading models...</option>
+                  ) : availableModels.length === 0 ? (
+                    <option>No models available</option>
                   ) : (
-                    <>
-                      {/* Downloaded models with tools */}
-                      {availableModels.filter(
-                        (m) => m.supportsTools && m.downloaded,
-                      ).length > 0 && (
-                        <optgroup label="✓ Recommended (Tool Support)">
-                          {availableModels
-                            .filter((m) => m.supportsTools && m.downloaded)
-                            .map((model) => (
-                              <option key={model.id} value={model.id}>
-                                {model.loaded ? "▶ " : ""}
-                                {model.name} ({model.size})
-                                {model.recommended ? " ★" : ""}
-                              </option>
-                            ))}
-                        </optgroup>
-                      )}
-
-                      {/* Downloaded models without tools */}
-                      {availableModels.filter(
-                        (m) => !m.supportsTools && m.downloaded,
-                      ).length > 0 && (
-                        <optgroup label="💬 Chat Only (Downloaded)">
-                          {availableModels
-                            .filter((m) => !m.supportsTools && m.downloaded)
-                            .map((model) => (
-                              <option key={model.id} value={model.id}>
-                                {model.loaded ? "▶ " : ""}
-                                {model.name} ({model.size})
-                              </option>
-                            ))}
-                        </optgroup>
-                      )}
-
-                      {/* Not downloaded */}
-                      {availableModels.filter((m) => !m.downloaded).length >
-                        0 && (
-                        <optgroup label="⬇ Available to Download">
-                          {availableModels
-                            .filter((m) => !m.downloaded)
-                            .map((model) => (
-                              <option key={model.id} value={model.id}>
-                                ⬇ {model.name} ({model.size})
-                                {model.supportsTools ? " ✓Tools" : ""}
-                                {model.recommended ? " ★" : ""}
-                              </option>
-                            ))}
-                        </optgroup>
-                      )}
-                    </>
+                    availableModels.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.loaded ? "▶ " : ""}
+                        {model.name} ({model.size})
+                        {model.recommended ? " ★" : ""}
+                        {model.supportsTools ? " [Tools]" : ""}
+                        {model.downloaded ? "" : " [Download needed]"}
+                      </option>
+                    ))
                   )}
                 </select>
                 <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
