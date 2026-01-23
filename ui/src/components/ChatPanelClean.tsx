@@ -253,65 +253,86 @@ ${dryRun ? "🧪 **Dry-run mode enabled** - using test data" : ""}`,
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-screen relative">
+      {/* Floating particles background */}
+      <div className="particles">
+        {[...Array(10)].map((_, i) => (
+          <div
+            key={i}
+            className="particle"
+            style={{ left: `${5 + i * 10}%`, animationDelay: `${i * 0.5}s` }}
+          />
+        ))}
+      </div>
+
       {/* Header */}
-      <header className="bg-blue-600 text-white p-4 shadow-lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">☁️</span>
-            <div>
-              <h1 className="text-xl font-bold">ArcOps Assistant</h1>
-              <p className="text-blue-200 text-sm">Powered by Foundry Local</p>
+      <header className="relative z-10 glass-card rounded-none border-x-0 border-t-0 header-border">
+        <div className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-xl shadow-lg">
+                ☁️
+              </div>
+              <div>
+                <h1 className="text-xl font-bold gradient-text">
+                  ArcOps Assistant
+                </h1>
+                <p className="text-sm text-gray-400">
+                  Powered by Foundry Local
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-4">
-            {/* Status indicator */}
-            <div className="flex items-center gap-2 text-sm">
-              <span
-                className={`w-2 h-2 rounded-full ${currentModel ? "bg-green-400" : "bg-gray-400"}`}
-              />
-              <span>{currentModel || "No model"}</span>
+            <div className="flex items-center gap-4">
+              {/* Status indicator */}
+              <div className="flex items-center gap-2 text-sm text-gray-300">
+                <span
+                  className={`status-dot ${currentModel ? "online" : "offline"}`}
+                />
+                <span>{currentModel || "No model"}</span>
+              </div>
+              {/* Dry-run toggle */}
+              <label className="flex items-center gap-2 text-sm cursor-pointer text-gray-300 hover:text-white transition-colors">
+                <input
+                  type="checkbox"
+                  checked={dryRun}
+                  onChange={(e) => setDryRun(e.target.checked)}
+                  className="rounded bg-gray-700 border-gray-600 text-purple-500 focus:ring-purple-500"
+                />
+                <span>Dry-run</span>
+              </label>
+              {/* Configure button */}
+              <button
+                onClick={() => setShowModelPanel(!showModelPanel)}
+                className="px-4 py-2 glass-card glow-purple hover:scale-105 transition-all text-sm font-medium"
+              >
+                Configure
+              </button>
             </div>
-            {/* Dry-run toggle */}
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={dryRun}
-                onChange={(e) => setDryRun(e.target.checked)}
-                className="rounded"
-              />
-              <span>Dry-run</span>
-            </label>
-            {/* Configure button */}
-            <button
-              onClick={() => setShowModelPanel(!showModelPanel)}
-              className="px-4 py-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors"
-            >
-              Configure
-            </button>
           </div>
         </div>
       </header>
 
       {/* Model Panel (collapsible) */}
       {showModelPanel && (
-        <div className="bg-white border-b shadow-md p-4">
+        <div className="relative z-10 glass-card rounded-none border-x-0 p-4">
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-lg font-semibold mb-4">Model Selection</h2>
+            <h2 className="text-lg font-semibold mb-4 text-white">
+              Model Selection
+            </h2>
 
             {/* Current model info */}
             {currentModel && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+              <div className="mb-4 p-3 glass-card glow-green flex items-center justify-between">
                 <div>
-                  <span className="font-medium text-green-800">
+                  <span className="font-medium text-green-400">
                     Currently running:{" "}
                   </span>
-                  <span className="text-green-700">{currentModel}</span>
+                  <span className="text-green-300">{currentModel}</span>
                 </div>
                 <button
                   onClick={stopModel}
                   disabled={modelAction === "stopping"}
-                  className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+                  className="px-3 py-1 bg-red-500/20 border border-red-500/50 text-red-400 rounded hover:bg-red-500/30 disabled:opacity-50 transition-colors"
                 >
                   {modelAction === "stopping" ? "Stopping..." : "Stop"}
                 </button>
@@ -324,7 +345,7 @@ ${dryRun ? "🧪 **Dry-run mode enabled** - using test data" : ""}`,
                 {/* Recommended */}
                 {groups.recommended.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-semibold text-yellow-700 mb-2">
+                    <h3 className="text-sm font-semibold text-yellow-400 mb-2">
                       ⭐ Recommended for Tools
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -349,7 +370,7 @@ ${dryRun ? "🧪 **Dry-run mode enabled** - using test data" : ""}`,
                 {/* With Tools */}
                 {groups.with_tools.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-semibold text-blue-700 mb-2">
+                    <h3 className="text-sm font-semibold text-purple-400 mb-2">
                       🛠️ Tool-Capable Models
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -374,7 +395,7 @@ ${dryRun ? "🧪 **Dry-run mode enabled** - using test data" : ""}`,
                 {/* Chat Only */}
                 {groups.chat_only.length > 0 && (
                   <details className="mt-4">
-                    <summary className="text-sm font-semibold text-gray-500 cursor-pointer mb-2">
+                    <summary className="text-sm font-semibold text-gray-500 cursor-pointer mb-2 hover:text-gray-400 transition-colors">
                       💬 Chat-Only Models ({groups.chat_only.length}) - Cannot
                       use diagnostic tools
                     </summary>
@@ -404,14 +425,18 @@ ${dryRun ? "🧪 **Dry-run mode enabled** - using test data" : ""}`,
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 relative z-10">
         <div className="max-w-4xl mx-auto space-y-4">
           {messages.map((msg, idx) => (
             <MessageBubble key={idx} message={msg} />
           ))}
           {isLoading && (
-            <div className="flex items-center gap-2 text-gray-500">
-              <span className="animate-spin">⏳</span>
+            <div className="flex items-center gap-3 text-gray-400 glass-card p-4 w-fit">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 rounded-full bg-purple-500 thinking-dot"></span>
+                <span className="w-2 h-2 rounded-full bg-purple-500 thinking-dot"></span>
+                <span className="w-2 h-2 rounded-full bg-purple-500 thinking-dot"></span>
+              </div>
               <span>Thinking...</span>
             </div>
           )}
@@ -420,8 +445,8 @@ ${dryRun ? "🧪 **Dry-run mode enabled** - using test data" : ""}`,
       </div>
 
       {/* Input */}
-      <div className="border-t bg-white p-4">
-        <div className="max-w-4xl mx-auto flex gap-2">
+      <div className="relative z-10 glass-card rounded-none border-x-0 border-b-0 p-4">
+        <div className="max-w-4xl mx-auto flex gap-3">
           <textarea
             ref={inputRef}
             value={input}
@@ -433,18 +458,18 @@ ${dryRun ? "🧪 **Dry-run mode enabled** - using test data" : ""}`,
                 : "Start a model first..."
             }
             disabled={!currentModel && !dryRun}
-            className="flex-1 p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            className="flex-1 p-3 bg-white/5 border border-white/10 rounded-xl resize-none text-white placeholder-gray-500 input-glow disabled:opacity-50 disabled:cursor-not-allowed"
             rows={2}
           />
           <button
             onClick={sendMessage}
             disabled={isLoading || (!currentModel && !dryRun) || !input.trim()}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-6 py-3 btn-primary rounded-xl font-medium"
           >
             Send
           </button>
         </div>
-        <p className="text-center text-xs text-gray-400 mt-2">
+        <p className="text-center text-xs text-gray-500 mt-2">
           Press Enter to send, Shift+Enter for new line
         </p>
       </div>
@@ -472,31 +497,31 @@ function ModelCard({
 }) {
   return (
     <div
-      className={`p-3 border rounded-lg cursor-pointer transition-all ${
+      className={`p-3 glass-card cursor-pointer transition-all ${
         isCurrent
-          ? "bg-green-50 border-green-300"
+          ? "glow-green border-green-500/50"
           : isSelected
-            ? "bg-blue-50 border-blue-300"
+            ? "glow-purple border-purple-500/50"
             : disabled
-              ? "bg-gray-50 border-gray-200 opacity-60"
-              : "bg-white border-gray-200 hover:border-blue-300"
+              ? "opacity-40"
+              : "hover:border-purple-500/30"
       }`}
       onClick={disabled ? undefined : onSelect}
     >
       <div className="flex items-center justify-between mb-1">
-        <span className="font-medium text-sm">{model.name}</span>
+        <span className="font-medium text-sm text-white">{model.name}</span>
         <div className="flex items-center gap-1">
           {model.recommended && (
-            <span className="text-yellow-500 text-xs">★</span>
+            <span className="text-yellow-400 text-xs">★</span>
           )}
           {model.supports_tools && (
-            <span className="text-blue-500 text-xs" title="Supports tools">
+            <span className="text-purple-400 text-xs" title="Supports tools">
               🛠️
             </span>
           )}
         </div>
       </div>
-      <div className="text-xs text-gray-500 mb-2">
+      <div className="text-xs text-gray-400 mb-2">
         {model.size} •{" "}
         {model.downloaded ? "✓ Downloaded" : "⬇️ Download needed"}
       </div>
@@ -507,10 +532,10 @@ function ModelCard({
             onStart();
           }}
           disabled={isStarting}
-          className={`w-full py-1 px-2 text-xs rounded ${
+          className={`w-full py-1.5 px-2 text-xs rounded-lg transition-all ${
             model.downloaded
-              ? "bg-green-500 hover:bg-green-600 text-white"
-              : "bg-blue-500 hover:bg-blue-600 text-white"
+              ? "bg-green-500/20 border border-green-500/50 text-green-400 hover:bg-green-500/30"
+              : "bg-purple-500/20 border border-purple-500/50 text-purple-400 hover:bg-purple-500/30"
           } disabled:opacity-50`}
         >
           {isStarting
@@ -521,7 +546,7 @@ function ModelCard({
         </button>
       )}
       {isCurrent && (
-        <div className="text-xs text-green-600 font-medium text-center">
+        <div className="text-xs text-green-400 font-medium text-center">
           ✓ Running
         </div>
       )}
@@ -534,28 +559,32 @@ function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === "user";
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div
+      className={`flex ${isUser ? "justify-end" : "justify-start"} animate-fade-in-up`}
+    >
       <div
-        className={`max-w-[80%] rounded-lg p-4 ${
-          isUser ? "bg-blue-600 text-white" : "bg-white border shadow-sm"
+        className={`max-w-[80%] rounded-2xl p-4 ${
+          isUser
+            ? "bg-gradient-to-br from-purple-600 to-purple-800 text-white"
+            : "glass-card glow-cyan"
         }`}
       >
         {/* Content with markdown-like rendering */}
         <div
-          className={`prose prose-sm max-w-none ${isUser ? "text-white prose-invert" : ""}`}
+          className={`prose prose-sm max-w-none ${isUser ? "text-white prose-invert" : "text-gray-200"}`}
           dangerouslySetInnerHTML={{ __html: formatMarkdown(message.content) }}
         />
 
         {/* Tool executions */}
         {message.toolsExecuted && message.toolsExecuted.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-gray-200">
-            <p className="text-xs font-semibold text-gray-500 mb-2">
+          <div className="mt-3 pt-3 border-t border-white/10">
+            <p className="text-xs font-semibold text-orange-400 mb-2">
               🛠️ Tools Used:
             </p>
             {message.toolsExecuted.map((tool, idx) => (
-              <div key={idx} className="text-xs bg-gray-50 rounded p-2 mb-1">
-                <span className="font-medium text-blue-600">{tool.name}</span>
-                <span className="text-gray-500 ml-2">
+              <div key={idx} className="text-xs tool-card mb-1">
+                <span className="font-medium text-orange-400">{tool.name}</span>
+                <span className="text-gray-400 ml-2">
                   → {tool.result_summary}
                 </span>
               </div>
@@ -565,7 +594,7 @@ function MessageBubble({ message }: { message: Message }) {
 
         {/* Timestamp */}
         <div
-          className={`text-xs mt-2 ${isUser ? "text-blue-200" : "text-gray-400"}`}
+          className={`text-xs mt-2 ${isUser ? "text-purple-200" : "text-gray-500"}`}
         >
           {message.timestamp.toLocaleTimeString()}
         </div>
@@ -579,7 +608,10 @@ function formatMarkdown(text: string): string {
   return text
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`(.+?)`/g, '<code class="bg-gray-100 px-1 rounded">$1</code>')
+    .replace(
+      /`(.+?)`/g,
+      '<code class="bg-white/10 px-1.5 py-0.5 rounded text-cyan-300">$1</code>',
+    )
     .replace(/\n/g, "<br/>");
 }
 

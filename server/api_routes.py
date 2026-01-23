@@ -1534,7 +1534,7 @@ async def chat_stream(request: Request) -> StreamingResponse:
             manager = FoundryLocalManager("qwen2.5-0.5b")  # Just to get endpoint
             endpoint = manager.endpoint
             loaded = manager.list_loaded_models()
-            model_id = loaded[0].id if loaded else "qwen2.5-1.5b"
+            model_id = loaded[0].id if loaded else "qwen2.5-0.5b"
             logger.info(f"Chat using model: {model_id}")
 
             # Prepare messages with system prompt
@@ -1884,14 +1884,14 @@ async def chat_status() -> dict[str, Any]:
         return {
             "available": False,
             "error": str(e),
-            "hint": "Start Foundry Local: foundry model run qwen2.5-1.5b",
+            "hint": "Start Foundry Local: foundry model run qwen2.5-0.5b",
         }
 
 
 # Models that support tool calling (required for chat)
 TOOL_CAPABLE_MODELS = {
     "qwen2.5-0.5b",
-    "qwen2.5-1.5b",
+    "phi-4-mini",
     "qwen2.5-7b",
     "qwen2.5-14b",
     "qwen2.5-coder-0.5b",
@@ -1908,7 +1908,7 @@ def _get_foundry_models() -> dict[str, Any]:
         from foundry_local import FoundryLocalManager
 
         # Use 1.5b as default - better at tool selection
-        manager = FoundryLocalManager("qwen2.5-1.5b")
+        manager = FoundryLocalManager("qwen2.5-0.5b")
 
         # Get all models from catalog
         try:
@@ -2020,16 +2020,16 @@ def _get_foundry_models_from_cli(sdk_error: str) -> dict[str, Any]:
         # Basic model list for when SDK fails
         basic_models = [
             {
-                "id": "qwen2.5-1.5b",
-                "name": "Qwen 2.5 1.5B",
-                "size": "1.25 GB",
-                "recommended": True,  # Prefer 1.5B for better tool selection
-                "supportsTools": True,
-            },
-            {
                 "id": "qwen2.5-0.5b",
                 "name": "Qwen 2.5 0.5B",
                 "size": "520 MB",
+                "recommended": True,  # Small, fast, supports tools
+                "supportsTools": True,
+            },
+            {
+                "id": "phi-4-mini",
+                "name": "Phi-4 Mini",
+                "size": "3.6 GB",
                 "recommended": False,
                 "supportsTools": True,
             },
@@ -2037,14 +2037,7 @@ def _get_foundry_models_from_cli(sdk_error: str) -> dict[str, Any]:
                 "id": "qwen2.5-7b",
                 "name": "Qwen 2.5 7B",
                 "size": "5.5 GB",
-                "recommended": True,
-                "supportsTools": True,
-            },
-            {
-                "id": "phi-4-mini",
-                "name": "Phi 4 Mini",
-                "size": "3.6 GB",
-                "recommended": True,
+                "recommended": False,
                 "supportsTools": True,
             },
             {
@@ -2109,7 +2102,7 @@ async def list_available_models() -> dict[str, Any]:
 async def start_foundry_model_stream(request: Request) -> StreamingResponse:
     """Start a Foundry Local model with streaming progress output."""
     body = await request.json()
-    model_id = body.get("model_id", "qwen2.5-1.5b")
+    model_id = body.get("model_id", "qwen2.5-0.5b")
 
     async def event_generator() -> AsyncGenerator[str, None]:
         import subprocess
@@ -2162,7 +2155,7 @@ async def start_foundry_model_stream(request: Request) -> StreamingResponse:
 @router.post("/foundry/start")
 async def start_foundry_model(request: dict[str, Any]) -> dict[str, Any]:
     """Start a Foundry Local model (non-streaming fallback)."""
-    model_id = request.get("model_id", "qwen2.5-1.5b")  # Default to 1.5b for better tool selection
+    model_id = request.get("model_id", "qwen2.5-0.5b")  # Default to qwen for tool support
 
     try:
         # Use the SDK to load the model (non-blocking)

@@ -21,6 +21,8 @@ from server.tools import (
     AksArcLogsTool,
     AksArcSupportTool,
     ArcConnectivityCheckTool,
+    ArcGatewayEgressCheckTool,
+    AzLocalEnvCheckWrapTool,
     AzLocalTsgTool,
     DiagnosticsBundleTool,
     ArcOpsEducationalTool,
@@ -34,53 +36,61 @@ SYSTEM_PROMPT = """You are ArcOps Assistant, a diagnostic AI for Azure Local and
 
 AVAILABLE TOOLS:
 1. arc.connectivity.check - Check network connectivity to 52+ Azure endpoints (DNS, TLS, firewall)
-2. aks.arc.validate - Validate AKS Arc cluster configuration (extensions, CNI, versions, Flux)
-3. aksarc.support.diagnose - Detect known AKS Arc issues (Failover Cluster, MOC, certs, VMMS)
-4. aksarc.logs.collect - Collect diagnostic logs from AKS Arc cluster nodes
-5. azlocal.tsg.search - Search troubleshooting guides for ANY error message, validation failure, or symptom
-6. arcops.diagnostics.bundle - Create support bundle with evidence files
-7. arcops.explain - Get educational content about Azure Local/AKS Arc topics
+2. arc.gateway.egress - Check TLS/Proxy/FQDN reachability for Arc gateway endpoints
+3. azlocal.envcheck - Run Azure Local Environment Checker for host validation
+4. azlocal.tsg.search - Search troubleshooting guides for ANY error message or symptom
+5. aks.arc.validate - Validate AKS Arc cluster configuration (extensions, CNI, versions)
+6. aksarc.support.diagnose - Detect known AKS Arc issues (MOC, certs, VMMS)
+7. aksarc.logs.collect - Collect diagnostic logs from AKS Arc cluster nodes
+8. arcops.diagnostics.bundle - Create support bundle with evidence files
+9. arcops.explain - Get educational content about Azure Local/AKS Arc topics
 
 WHEN TO USE TOOLS:
-- Connectivity/firewall/proxy/DNS issues → arc.connectivity.check
-- Cluster health/validation/extensions → aks.arc.validate  
-- ANY error message or failure text → azlocal.tsg.search (use the exact error text)
-- "validation failed", "test-cluster error", deployment failures → azlocal.tsg.search
-- Error codes like 0x800xxxxx → azlocal.tsg.search
-- "Known issues" or common problems → aksarc.support.diagnose
+- Connectivity/firewall/proxy issues → arc.connectivity.check
+- Gateway/egress/proxy problems → arc.gateway.egress
+- Host validation/environment check → azlocal.envcheck  
+- ANY error message or failure → azlocal.tsg.search (use exact error text)
+- Cluster health/extensions → aks.arc.validate
+- Known AKS Arc issues → aksarc.support.diagnose
 - Collect logs for support → aksarc.logs.collect
-- Create bundle for support case → arcops.diagnostics.bundle
+- Create support bundle → arcops.diagnostics.bundle
 - Learn about a topic → arcops.explain
 
 TSG SEARCH RESPONSE FORMAT:
-When azlocal.tsg.search returns results, present them in this format:
+When azlocal.tsg.search returns results, present them clearly:
 1. State you found relevant troubleshooting guide(s)
-2. For the TOP match (highest confidence):
+2. For the TOP match:
    - Show the TSG title
-   - Provide the direct GitHub link from the "Url" field
-   - List ALL fix steps from "FixSteps" array (include both Text and Code steps)
-   - For Code steps, format them as PowerShell code blocks
-3. If there are additional relevant matches, briefly mention them with their titles and links
-4. Always include the GitHub URL so users can read the full article
+   - Provide the GitHub link from "Url" field
+   - List ALL fix steps from "FixSteps" array
+   - Format Code steps as PowerShell code blocks
+3. Mention additional relevant matches with titles and links
+4. Always include GitHub URLs
 
 IMPORTANT:
-- ALWAYS use azlocal.tsg.search when the user mentions ANY error, failure, or problem text
-- Pass the user's exact error message to the tool's query parameter
+- ALWAYS use azlocal.tsg.search when user mentions ANY error, failure, or problem
+- Pass exact error message to the tool's query parameter
 - ALWAYS use tools to gather real diagnostic information
-- Do NOT make up diagnostic results or error codes
-- After running a tool, present the ACTUAL data returned (URLs, steps, code)
-- If a tool fails, explain the error and suggest alternatives
-- Be thorough - include all fix steps from the TSG, not just a summary
+- Do NOT make up results or error codes
+- Present ACTUAL data returned (URLs, steps, code)
+- If tool fails, explain error and suggest alternatives
+- Be thorough with fix steps, not just summaries
 """
 
 
 # MCP Tool Registry - maps tool names to implementations
 TOOL_REGISTRY = {
+    # Connectivity & Network Tools
     "arc.connectivity.check": ArcConnectivityCheckTool(),
+    "arc.gateway.egress": ArcGatewayEgressCheckTool(),
+    # Azure Local Environment Tools
+    "azlocal.envcheck": AzLocalEnvCheckWrapTool(),
+    "azlocal.tsg.search": AzLocalTsgTool(),
+    # AKS Arc Tools
     "aks.arc.validate": AksArcValidateTool(),
     "aksarc.support.diagnose": AksArcSupportTool(),
     "aksarc.logs.collect": AksArcLogsTool(),
-    "azlocal.tsg.search": AzLocalTsgTool(),
+    # Utility Tools
     "arcops.diagnostics.bundle": DiagnosticsBundleTool(),
     "arcops.explain": ArcOpsEducationalTool(),
 }

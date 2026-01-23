@@ -5,45 +5,23 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> **AI-powered diagnostic assistant for Azure Local and AKS Arc** — powered by Model Context Protocol (MCP) and Foundry Local.
+> **AI-powered diagnostic assistant for Azure Local and AKS Arc** — powered by Model Context Protocol (MCP) and local AI models.
 
 ArcOps MCP provides a conversational interface for troubleshooting Azure Local and AKS Arc deployments. Ask questions in natural language and get diagnostic insights from official Microsoft tools.
 
-## ✨ Features
-
-- **🤖 AI Chat Interface** — Natural language troubleshooting powered by Foundry Local SLMs
-- **🔧 MCP Tool Integration** — Standardized tool protocol for AI agents
-- **📊 Real Diagnostics** — Wraps official Microsoft tools (no fake data)
-- **🔍 TSG Search** — Search Azure Local troubleshooting guides via [AzLocalTSGTool](https://github.com/smitzlroy/azlocaltsgtool)
-- **📦 Offline Capable** — Local AI models run entirely on your machine
-
 ## 🏗️ Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        ArcOps Assistant                         │
-│                     (React Chat Interface)                      │
-└─────────────────────────┬───────────────────────────────────────┘
-                          │ HTTP/SSE
-┌─────────────────────────▼───────────────────────────────────────┐
-│                     ArcOps MCP Server                           │
-│                      (FastAPI + MCP)                            │
-├─────────────────────────────────────────────────────────────────┤
-│  🔧 MCP Tools                    │  🤖 AI Integration           │
-│  ├── arc.connectivity.check      │  └── Foundry Local SDK       │
-│  ├── aks.arc.validate            │      └── Qwen 2.5 / Phi-4    │
-│  ├── azlocal.tsg.search          │                              │
-│  └── arcops.diagnostics.bundle   │                              │
-└─────────────────────────────────────────────────────────────────┘
-                          │
-┌─────────────────────────▼───────────────────────────────────────┐
-│                    Microsoft Tools                              │
-│  ├── AzStackHci.EnvironmentChecker (PowerShell)                │
-│  ├── AzLocalTSGTool (PowerShell)                                │
-│  ├── Azure CLI (az connectedk8s, az k8s-extension)             │
-│  └── kubectl                                                    │
-└─────────────────────────────────────────────────────────────────┘
-```
+![ArcOps MCP Architecture](diagrams/architecture.svg)
+
+**[View Interactive Diagram →](diagrams/arcops-architecture-horizontal.html)** *(open locally for animations)*
+
+## ✨ Features
+
+- **🤖 AI Chat Interface** — Natural language troubleshooting powered by local SLMs
+- **🔧 MCP Tool Integration** — Standardized Model Context Protocol for AI agents
+- **📊 Real Diagnostics** — Wraps official Microsoft tools (no fake data)
+- **🔍 TSG Search** — Search 149 Azure Local troubleshooting guides via [AzLocalTSGTool](https://github.com/smitzlroy/azlocaltsgtool)
+- **📦 Offline Capable** — All AI models run entirely on your machine
 
 ## 🚀 Quick Start
 
@@ -52,7 +30,7 @@ ArcOps MCP provides a conversational interface for troubleshooting Azure Local a
 - Windows 10/11 or Windows Server 2019+
 - Python 3.11+
 - [Foundry Local](https://github.com/microsoft/foundry-local) (for AI chat)
-- Node.js 18+ (for UI development)
+- Node.js 18+ (for UI)
 
 ### Installation
 
@@ -66,9 +44,10 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 
-# Install optional PowerShell modules for real diagnostics
+# Install PowerShell modules for diagnostics
 Install-Module -Name AzStackHci.EnvironmentChecker -Force
 Install-Module -Name AzLocalTSGTool -Force
+Install-Module -Name Support.AksArc -Force
 ```
 
 ### Start the Server
@@ -77,113 +56,58 @@ Install-Module -Name AzLocalTSGTool -Force
 # Start MCP server
 python -m cli server --port 8080
 
-# In a new terminal, start Foundry Local with a model
-foundry model run qwen2.5-1.5b
+# Start Foundry Local with a model
+foundry model run qwen2.5-0.5b
 
-# In a new terminal, start the UI
-cd ui
-npm install
-npm run dev
+# Start the UI
+cd ui && npm install && npm run dev
 ```
 
 Open **http://localhost:5173** and start chatting!
 
 ## 💬 Usage Examples
 
-### Chat with the Assistant
-
 Try asking:
-- "Check connectivity to Azure"
-- "Validate my AKS Arc cluster"
-- "I'm getting error 0x80004005"
-- "Search for cluster validation issues"
-
-### CLI Commands
-
-```powershell
-# Run connectivity check
-python -m cli envcheck --out ./results
-
-# Validate cluster
-python -m cli validate --cluster my-cluster --resource-group my-rg
-
-# Create diagnostic bundle
-python -m cli bundle --in ./results --out ./artifacts
-```
-
-### Direct API Access
-
-```bash
-# Check server health
-curl http://localhost:8080/health
-
-# Run connectivity check
-curl http://localhost:8080/api/connectivity/check?mode=quick
-
-# List available MCP tools
-curl -X POST http://localhost:8080/mcp/rpc \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-```
+- *"Check connectivity to Azure"*
+- *"Validate my AKS Arc cluster"*
+- *"I'm getting error 0x80004005"*
+- *"Search for cluster validation issues"*
 
 ## 🔧 MCP Tools
 
-All diagnostic tools are exposed via the [Model Context Protocol](https://modelcontextprotocol.io):
-
 | Tool | Description | Backend |
 |------|-------------|---------|
-| `arc.connectivity.check` | Azure endpoint connectivity validation | `AzStackHci.EnvironmentChecker` |
+| `arc.connectivity.check` | Azure endpoint connectivity (52+ endpoints) | `AzStackHci.EnvironmentChecker` |
+| `arc.gateway.egress.check` | Arc Gateway TLS/Proxy validation | `AzStackHci.EnvironmentChecker` |
+| `azlocal.envcheck` | Full environment validation | `AzStackHci.EnvironmentChecker` |
+| `azlocal.tsg.search` | Search 149 troubleshooting guides | `AzLocalTSGTool` |
 | `aks.arc.validate` | AKS Arc cluster health checks | `az connectedk8s` + `kubectl` |
-| `azlocal.tsg.search` | Search troubleshooting guides | `AzLocalTSGTool` |
 | `aksarc.support.diagnose` | Known issue detection | `Support.AksArc` |
+| `aksarc.logs.collect` | Log collection for support | `Support.AksArc` |
 | `arcops.diagnostics.bundle` | Create support bundles | Local packaging |
+| `azlocal.educational` | Azure Local concepts & learning | Built-in |
 
-### MCP Integration
+## 🤖 Supported Models
 
-```python
-# Example: Using MCP tools programmatically
-from server.main import TOOL_REGISTRY
+ArcOps works with any OpenAI-compatible API. Recommended local models via [Foundry Local](https://github.com/microsoft/foundry-local):
 
-# Get a tool
-tsg_tool = TOOL_REGISTRY["azlocal.tsg.search"]
-
-# Execute it
-result = await tsg_tool.execute({
-    "query": "cluster validation failed",
-    "dryRun": False
-})
-```
-
-## 🤖 AI Models
-
-ArcOps uses [Foundry Local](https://github.com/microsoft/foundry-local) to run AI models locally:
-
-| Model | Size | Recommended | Tool Calling |
-|-------|------|-------------|--------------|
-| `qwen2.5-1.5b` | 1.25 GB | ✅ Best for tools | ✅ |
-| `qwen2.5-7b` | 5.5 GB | ✅ Excellent | ✅ |
-| `phi-4-mini` | 3.6 GB | ✅ Good balance | ✅ |
-| `qwen2.5-0.5b` | 520 MB | ⚠️ Limited | ✅ (with assist) |
-
-**Recommended:** Use `phi-4-mini` or `qwen2.5-7b` for reliable tool selection.
+| Model | Size | Tool Calling |
+|-------|------|--------------|
+| `qwen2.5-0.5b` | 520 MB | ✅ Excellent |
+| `qwen2.5-1.5b` | 1.25 GB | ✅ Excellent |
+| `phi-4-mini` | 3.6 GB | ✅ Good |
 
 ## 🔒 Privacy & Security
 
 - **All AI runs locally** — No data sent to external APIs
-- **Foundry Local** uses on-device SLMs
 - **No telemetry** — Your data stays on your machine
-- **Dry-run mode** for safe testing without real operations
+- **Dry-run mode** — Safe testing without real operations
 
 ## 📚 Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) — System design
+- [Architecture](docs/ARCHITECTURE.md) — System design details
 - [Tool Registry](docs/TOOL_REGISTRY.md) — All MCP tools
 - [Privacy & Security](docs/PRIVACY_SECURITY.md) — Data handling
-- [Sources](docs/SOURCES.md) — Microsoft documentation links
-
-## 🤝 Contributing
-
-Contributions welcome! Please read our contributing guidelines and submit PRs.
 
 ## 📄 License
 

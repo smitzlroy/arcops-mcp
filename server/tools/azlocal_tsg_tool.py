@@ -154,12 +154,37 @@ class AzLocalTsgTool(BaseTool):
             escaped_query = query.replace("'", "''")
 
             # Use pwsh (PowerShell 7) since the module requires it
-            # Suppress warning output by redirecting all non-JSON output
+            # Workaround for AzLocalTSGTool 0.3.2 bug: StrictMode + single token fails on .Count
+            # We use -Top parameter to ensure multiple results, avoiding the single-token issue
             ps_cmd = f"""
+            $ErrorActionPreference = 'Continue'
             $WarningPreference = 'SilentlyContinue'
             Import-Module AzLocalTSGTool -Force -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
-            $results = Get-AzLocalTSGFix -ErrorText '{escaped_query}' -Json -WarningAction SilentlyContinue 2>$null | ConvertFrom-Json
-            if ($results) {{ $results | ConvertTo-Json -Depth 10 -Compress }} else {{ '[]' }}
+            try {{
+                $results = Get-AzLocalTSGFix -ErrorText '{escaped_query}' -Top 20 -Json 2>$null
+                if ($results) {{ $results }} else {{ '[]' }}
+            }} catch {{
+                # Fallback: Search index directly if module has issues
+                $indexPath = Join-Path $env:LOCALAPPDATA 'AzLocalTSGTool' 'index.json'
+                if (Test-Path $indexPath) {{
+                    $index = Get-Content $indexPath -Raw | ConvertFrom-Json
+                    $queryLower = '{escaped_query}'.ToLower()
+                    $matches = @($index | Where-Object {{ 
+                        $_.Title -like "*$queryLower*" -or 
+                        $_.Content -like "*$queryLower*" -or
+                        ($_.Tokens -join ' ') -like "*$queryLower*"
+                    }} | Select-Object -First 20)
+                    $matches | ForEach-Object {{
+                        [PSCustomObject]@{{
+                            Title = $_.Title
+                            Url = $_.Url
+                            Confidence = 50
+                            FixSummary = $_.FixSummary
+                            FixSteps = $_.FixSteps
+                        }}
+                    }} | ConvertTo-Json -Depth 5
+                }} else {{ '[]' }}
+            }}
             """
 
             result = subprocess.run(
