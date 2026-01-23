@@ -65,6 +65,96 @@ cd ui && npm install && npm run dev
 
 Open **http://localhost:5173** and start chatting!
 
+### One-Click Start
+
+```powershell
+# Full setup and run (first time)
+.\start.ps1
+
+# Skip installation (already set up)
+.\start.ps1 -SkipInstall
+
+# Use a different model
+.\start.ps1 -Model "phi-4-mini"
+```
+
+## 🔌 Connect to Your IDE
+
+ArcOps MCP can be used with any MCP-compatible client.
+
+### VS Code / GitHub Copilot
+
+Add to `.vscode/mcp.json` in your project:
+
+```json
+{
+  "mcpServers": {
+    "arcops": {
+      "command": "python",
+      "args": ["-m", "cli", "server"],
+      "cwd": "C:\\path\\to\\arcops-mcp"
+    }
+  }
+}
+```
+
+### Claude Desktop
+
+Edit `%APPDATA%\Claude\claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "arcops": {
+      "command": "python",
+      "args": ["-m", "cli", "server"],
+      "cwd": "C:\\path\\to\\arcops-mcp"
+    }
+  }
+}
+```
+
+### Cursor IDE
+
+Add to `.cursor/mcp.json` in your project:
+
+```json
+{
+  "mcpServers": {
+    "arcops": {
+      "command": "python",
+      "args": ["-m", "cli", "server"],
+      "cwd": "C:\\path\\to\\arcops-mcp"
+    }
+  }
+}
+```
+
+### Any OpenAI-Compatible Client
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://127.0.0.1:8082/api",
+    api_key="not-needed"
+)
+
+response = client.chat.completions.create(
+    model="qwen2.5-0.5b",
+    messages=[{"role": "user", "content": "Run environment check"}]
+)
+```
+
+### API Endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `/mcp` | MCP protocol (stdio-over-HTTP) |
+| `/api/chat` | OpenAI-compatible chat completions |
+| `/api/tools` | List available tools |
+| `/api/tools/{name}/run` | Execute a specific tool |
+
 ## 💬 Usage Examples
 
 Try asking:
