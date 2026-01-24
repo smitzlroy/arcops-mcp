@@ -1,0 +1,64 @@
+# Network Sovereign Policy
+# Strict network policy for sovereign/edge deployments
+
+name: network-sovereign
+version: "1.0"
+description: Sovereign network policy with strict egress control
+
+global:
+  tlsMinVersion: "1.2"
+  requireGatewayAPI: true
+  denyByDefault: true
+  
+namespaces:
+  - name: ai-inference
+    description: AI model inference workloads
+    ingress:
+      hosts:
+        - "inference.internal.local"
+        - "api.internal.local"
+      tlsRequired: true
+      tlsSecret: "ai-inference-tls"
+      rateLimit:
+        requestsPerSecond: 100
+        burst: 200
+    egress:
+      mode: "deny-by-default"
+      allowedCidrs:
+        - "10.10.0.0/16"    # Internal services
+        - "10.20.1.0/24"    # Database subnet
+      allowedSNI:
+        - "db.internal.local"
+        - "cache.internal.local"
+        - "storage.internal.local"
+      allowedPorts:
+        - 443   # HTTPS
+        - 5432  # PostgreSQL
+        - 6379  # Redis
+
+  - name: model-registry
+    description: Model artifact storage
+    ingress:
+      hosts:
+        - "registry.internal.local"
+      tlsRequired: true
+      tlsSecret: "registry-tls"
+    egress:
+      mode: "deny-by-default"
+      allowedCidrs:
+        - "10.10.0.0/16"
+      allowedSNI: []  # No external egress
+
+  - name: monitoring
+    description: Observability stack
+    ingress:
+      hosts:
+        - "metrics.internal.local"
+        - "logs.internal.local"
+      tlsRequired: true
+      tlsSecret: "monitoring-tls"
+    egress:
+      mode: "deny-by-default"
+      allowedCidrs:
+        - "10.0.0.0/8"  # All internal
+      allowedSNI: []

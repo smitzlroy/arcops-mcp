@@ -1,0 +1,167 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://arcops-mcp/schemas/approval.schema.json",
+    "title": "ApprovalArtifact",
+    "description": "Supply-chain gate approval artifact for BYO model verification",
+    "type": "object",
+    "properties": {
+        "version": {
+            "type": "string",
+            "const": "1.0.0",
+            "description": "Schema version"
+        },
+        "type": {
+            "type": "string",
+            "const": "approval",
+            "description": "Artifact type identifier"
+        },
+        "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp of artifact creation"
+        },
+        "runId": {
+            "type": "string",
+            "description": "Unique identifier for this run"
+        },
+        "metadata": {
+            "type": "object",
+            "properties": {
+                "toolName": { "type": "string" },
+                "toolVersion": { "type": "string" },
+                "hostname": { "type": "string" }
+            },
+            "required": ["toolName", "toolVersion"]
+        },
+        "image": {
+            "type": "object",
+            "properties": {
+                "reference": { 
+                    "type": "string",
+                    "description": "Full OCI image reference"
+                },
+                "digest": { 
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$",
+                    "description": "Image digest"
+                },
+                "tag": {
+                    "type": "string",
+                    "description": "Image tag if available"
+                }
+            },
+            "required": ["reference", "digest"]
+        },
+        "signature": {
+            "type": "object",
+            "properties": {
+                "validated": { 
+                    "type": "boolean",
+                    "description": "Whether signature was validated"
+                },
+                "present": {
+                    "type": "boolean",
+                    "description": "Whether signature was present"
+                },
+                "signer": { 
+                    "type": "string",
+                    "description": "Identity of the signer"
+                },
+                "algorithm": { 
+                    "type": "string",
+                    "description": "Signature algorithm used"
+                },
+                "timestamp": { 
+                    "type": "string", 
+                    "format": "date-time",
+                    "description": "When the signature was created"
+                },
+                "error": {
+                    "type": "string",
+                    "description": "Error message if validation failed"
+                }
+            },
+            "required": ["validated", "present"]
+        },
+        "attestation": {
+            "type": "object",
+            "properties": {
+                "validated": { "type": "boolean" },
+                "present": { "type": "boolean" },
+                "type": { "type": "string" },
+                "predicateType": { "type": "string" },
+                "error": { "type": "string" }
+            }
+        },
+        "sbom": {
+            "type": "object",
+            "properties": {
+                "present": { "type": "boolean" },
+                "source": { 
+                    "type": "string",
+                    "enum": ["embedded", "generated", "provided", "none"]
+                },
+                "format": { 
+                    "type": "string",
+                    "enum": ["spdx", "cyclonedx", "unknown"]
+                },
+                "packages": { "type": "integer" },
+                "vulnerabilities": {
+                    "type": "object",
+                    "properties": {
+                        "critical": { "type": "integer", "minimum": 0 },
+                        "high": { "type": "integer", "minimum": 0 },
+                        "medium": { "type": "integer", "minimum": 0 },
+                        "low": { "type": "integer", "minimum": 0 }
+                    },
+                    "required": ["critical", "high", "medium", "low"]
+                },
+                "error": { "type": "string" }
+            },
+            "required": ["present"]
+        },
+        "policy": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string" },
+                "version": { "type": "string" },
+                "path": { "type": "string" },
+                "rulesEvaluated": { "type": "integer" },
+                "rulesPassed": { "type": "integer" },
+                "rulesFailed": { "type": "integer" },
+                "failures": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "rule": { "type": "string" },
+                            "reason": { "type": "string" },
+                            "severity": { 
+                                "type": "string",
+                                "enum": ["critical", "high", "medium", "low"]
+                            }
+                        },
+                        "required": ["rule", "reason"]
+                    }
+                }
+            },
+            "required": ["name", "rulesEvaluated", "rulesPassed", "rulesFailed"]
+        },
+        "verdict": {
+            "type": "string",
+            "enum": ["GREEN", "AMBER", "RED"],
+            "description": "Final approval verdict"
+        },
+        "reasons": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Human-readable reasons for the verdict"
+        },
+        "artifactHash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$",
+            "description": "SHA-256 hash of artifact content for integrity"
+        }
+    },
+    "required": ["version", "type", "timestamp", "runId", "image", "signature", "verdict", "reasons", "artifactHash"]
+}

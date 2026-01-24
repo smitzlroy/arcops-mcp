@@ -1,0 +1,140 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://arcops-mcp/schemas/inference-validation.schema.json",
+    "title": "InferenceValidation",
+    "description": "Multi-model inference validation artifact",
+    "type": "object",
+    "properties": {
+        "version": {
+            "type": "string",
+            "const": "1.0.0"
+        },
+        "type": {
+            "type": "string",
+            "const": "inference-validation"
+        },
+        "timestamp": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "runId": {
+            "type": "string"
+        },
+        "metadata": {
+            "type": "object",
+            "properties": {
+                "toolName": { "type": "string" },
+                "toolVersion": { "type": "string" },
+                "hostname": { "type": "string" },
+                "foundryVersion": { "type": "string" }
+            }
+        },
+        "models": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string" },
+                    "type": { 
+                        "type": "string", 
+                        "enum": ["catalog", "byo"] 
+                    },
+                    "image": { "type": "string" },
+                    "alias": { "type": "string" },
+                    "loaded": { "type": "boolean" },
+                    "loadTimeMs": { "type": "integer" },
+                    "memoryMb": { "type": "integer" },
+                    "error": { "type": "string" }
+                },
+                "required": ["name", "type", "loaded"]
+            }
+        },
+        "inference": {
+            "type": "object",
+            "properties": {
+                "testAsset": { "type": "string" },
+                "testAssetType": { 
+                    "type": "string",
+                    "enum": ["image", "text", "audio", "video"]
+                },
+                "workflow": { 
+                    "type": "string",
+                    "description": "Description of the inference workflow"
+                },
+                "iterations": { "type": "integer" },
+                "warmupIterations": { "type": "integer" },
+                "successful": { "type": "integer" },
+                "failed": { "type": "integer" },
+                "metrics": {
+                    "type": "object",
+                    "properties": {
+                        "latencyP50Ms": { "type": "number" },
+                        "latencyP95Ms": { "type": "number" },
+                        "latencyP99Ms": { "type": "number" },
+                        "latencyMinMs": { "type": "number" },
+                        "latencyMaxMs": { "type": "number" },
+                        "latencyMeanMs": { "type": "number" },
+                        "throughputRps": { "type": "number" },
+                        "memoryPeakMb": { "type": "number" },
+                        "memoryAvgMb": { "type": "number" },
+                        "gpuUtilizationPct": { "type": "number" },
+                        "tokensPerSecond": { "type": "number" }
+                    }
+                },
+                "sampleOutput": {
+                    "type": "string",
+                    "description": "Sample output from inference (truncated)"
+                }
+            },
+            "required": ["iterations", "metrics"]
+        },
+        "thresholds": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string" },
+                "path": { "type": "string" },
+                "latencyP95MsMax": { "type": "number" },
+                "latencyP99MsMax": { "type": "number" },
+                "memoryMbMax": { "type": "number" },
+                "throughputRpsMin": { "type": "number" },
+                "gpuUtilizationPctMax": { "type": "number" }
+            }
+        },
+        "checks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { 
+                        "type": "string", 
+                        "enum": ["pass", "fail", "skip"] 
+                    },
+                    "metric": { "type": "string" },
+                    "actual": { "type": "number" },
+                    "threshold": { "type": "number" },
+                    "comparison": {
+                        "type": "string",
+                        "enum": ["<=", ">=", "<", ">", "=="]
+                    }
+                },
+                "required": ["id", "title", "status"]
+            }
+        },
+        "verdict": {
+            "type": "string",
+            "enum": ["PASS", "FAIL"],
+            "description": "Overall validation verdict"
+        },
+        "failureReasons": {
+            "type": "array",
+            "items": { "type": "string" }
+        },
+        "artifactHash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+    },
+    "required": ["version", "type", "timestamp", "runId", "models", "inference", "verdict", "artifactHash"]
+}

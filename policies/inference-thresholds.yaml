@@ -1,0 +1,36 @@
+# Inference Thresholds Policy
+# Performance thresholds for inference validation
+
+name: inference-thresholds-default
+version: "1.0"
+description: Default performance thresholds for inference validation
+
+thresholds:
+  # Latency thresholds (milliseconds)
+  latencyP95MsMax: 200      # Max 200ms P95 latency
+  latencyP99MsMax: 500      # Max 500ms P99 latency
+  
+  # Memory thresholds (megabytes)
+  memoryMbMax: 16000        # Max 16GB memory usage
+  
+  # Throughput thresholds
+  throughputRpsMin: 5       # Minimum 5 requests/second
+  
+  # GPU utilization
+  gpuUtilizationPctMax: 95  # Max 95% GPU utilization
+
+workflow:
+  # Number of inference iterations for measurement
+  iterations: 10
+  
+  # Warmup iterations (not counted in metrics)
+  warmupIterations: 2
+  
+  # Cooldown between tests (seconds)
+  cooldownSeconds: 5
+  
+  # Test prompt for LLMs
+  defaultPrompt: "Summarize the key points of the following text:"
+  
+  # Maximum tokens for test responses
+  maxTokens: 100

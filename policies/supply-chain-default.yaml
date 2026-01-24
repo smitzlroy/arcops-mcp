@@ -1,0 +1,59 @@
+# Supply Chain Default Policy
+# Evaluates BYO model images for security compliance
+
+name: supply-chain-default
+version: "1.0"
+description: Default supply chain policy for BYO model verification
+
+rules:
+  - name: require-signature
+    description: Model image must have a valid signature
+    condition: signature.validated == true
+    verdict: GREEN
+    failVerdict: RED
+    severity: critical
+
+  - name: signature-present
+    description: Signature must be present on the image
+    condition: signature.present == true
+    verdict: GREEN
+    failVerdict: RED
+    severity: critical
+
+  - name: no-critical-cves
+    description: No critical vulnerabilities allowed
+    condition: sbom.vulnerabilities.critical == 0
+    verdict: GREEN
+    failVerdict: RED
+    severity: critical
+
+  - name: max-high-cves
+    description: Maximum 5 high severity vulnerabilities
+    condition: sbom.vulnerabilities.high <= 5
+    verdict: GREEN
+    failVerdict: AMBER
+    severity: high
+
+  - name: sbom-present
+    description: SBOM should be present for full analysis
+    condition: sbom.present == true
+    verdict: GREEN
+    failVerdict: AMBER
+    severity: medium
+
+settings:
+  # Allowed signers (email or key fingerprint)
+  allowedSigners:
+    - "ml-team@corp.local"
+    - "release-bot@corp.local"
+    - "ci-pipeline@corp.local"
+  
+  # Allowed base images for models
+  allowedBaseImages:
+    - "nvidia/cuda:*"
+    - "python:3.11-slim"
+    - "pytorch/pytorch:*"
+    - "mcr.microsoft.com/*"
+  
+  # Maximum age for signatures (ISO 8601 duration)
+  maxSignatureAge: "P90D"  # 90 days

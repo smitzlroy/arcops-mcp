@@ -1,0 +1,139 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://arcops-mcp/schemas/gpu-readiness.schema.json",
+    "title": "GpuReadiness",
+    "description": "GPU hardware readiness check artifact",
+    "type": "object",
+    "properties": {
+        "version": {
+            "type": "string",
+            "const": "1.0.0"
+        },
+        "type": {
+            "type": "string",
+            "const": "gpu-readiness"
+        },
+        "timestamp": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "runId": {
+            "type": "string"
+        },
+        "metadata": {
+            "type": "object",
+            "properties": {
+                "toolName": { "type": "string" },
+                "toolVersion": { "type": "string" },
+                "hostname": { "type": "string" },
+                "node": { 
+                    "type": "string",
+                    "description": "Kubernetes node name if applicable"
+                }
+            }
+        },
+        "gpus": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "index": { "type": "integer" },
+                    "name": { "type": "string" },
+                    "uuid": { "type": "string" },
+                    "pciId": { "type": "string" },
+                    "memory": {
+                        "type": "object",
+                        "properties": {
+                            "totalMb": { "type": "integer" },
+                            "usedMb": { "type": "integer" },
+                            "freeMb": { "type": "integer" }
+                        },
+                        "required": ["totalMb", "freeMb"]
+                    },
+                    "driver": { "type": "string" },
+                    "cuda": { "type": "string" },
+                    "computeCapability": { "type": "string" },
+                    "mig": {
+                        "type": "object",
+                        "properties": {
+                            "enabled": { "type": "boolean" },
+                            "mode": { "type": "string" },
+                            "instances": { "type": "integer" },
+                            "profiles": {
+                                "type": "array",
+                                "items": { "type": "string" }
+                            }
+                        },
+                        "required": ["enabled"]
+                    },
+                    "temperature": {
+                        "type": "object",
+                        "properties": {
+                            "current": { "type": "integer" },
+                            "max": { "type": "integer" },
+                            "unit": { "type": "string", "const": "C" }
+                        }
+                    },
+                    "utilization": {
+                        "type": "object",
+                        "properties": {
+                            "gpu": { "type": "integer", "minimum": 0, "maximum": 100 },
+                            "memory": { "type": "integer", "minimum": 0, "maximum": 100 }
+                        }
+                    },
+                    "power": {
+                        "type": "object",
+                        "properties": {
+                            "draw": { "type": "number" },
+                            "limit": { "type": "number" },
+                            "unit": { "type": "string", "const": "W" }
+                        }
+                    },
+                    "healthy": { "type": "boolean" },
+                    "issues": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                    }
+                },
+                "required": ["index", "name", "memory", "healthy"]
+            }
+        },
+        "summary": {
+            "type": "object",
+            "properties": {
+                "totalGpus": { "type": "integer" },
+                "healthyGpus": { "type": "integer" },
+                "totalMemoryMb": { "type": "integer" },
+                "availableMemoryMb": { "type": "integer" },
+                "driverVersion": { "type": "string" },
+                "cudaVersion": { "type": "string" },
+                "migEnabled": { "type": "boolean" }
+            },
+            "required": ["totalGpus", "healthyGpus"]
+        },
+        "checks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string" },
+                    "title": { "type": "string" },
+                    "status": { "type": "string", "enum": ["pass", "fail", "warn", "skip"] },
+                    "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+                    "detail": { "type": "string" }
+                },
+                "required": ["id", "title", "status"]
+            }
+        },
+        "verdict": {
+            "type": "string",
+            "enum": ["READY", "DEGRADED", "NOT_READY"],
+            "description": "Overall GPU readiness verdict"
+        },
+        "artifactHash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+    },
+    "required": ["version", "type", "timestamp", "runId", "gpus", "summary", "verdict", "artifactHash"]
+}

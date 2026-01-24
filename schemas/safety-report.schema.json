@@ -1,0 +1,121 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://arcops-mcp/schemas/safety-report.schema.json",
+    "title": "SafetyReport",
+    "description": "Network safety validation report for ingress/egress policies",
+    "type": "object",
+    "properties": {
+        "version": {
+            "type": "string",
+            "const": "1.0.0"
+        },
+        "type": {
+            "type": "string",
+            "const": "safety-report"
+        },
+        "timestamp": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "runId": {
+            "type": "string"
+        },
+        "metadata": {
+            "type": "object",
+            "properties": {
+                "toolName": { "type": "string" },
+                "toolVersion": { "type": "string" },
+                "hostname": { "type": "string" }
+            }
+        },
+        "policy": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string" },
+                "path": { "type": "string" },
+                "version": { "type": "string" },
+                "namespaces": { 
+                    "type": "integer",
+                    "description": "Number of namespaces defined in policy"
+                }
+            },
+            "required": ["name", "path", "namespaces"]
+        },
+        "checks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": { 
+                        "type": "string",
+                        "description": "Unique check identifier"
+                    },
+                    "category": { 
+                        "type": "string",
+                        "enum": ["ingress", "egress", "tls", "namespace", "global"],
+                        "description": "Check category"
+                    },
+                    "severity": {
+                        "type": "string",
+                        "enum": ["critical", "high", "medium", "low", "info"]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["pass", "fail", "warn", "skip"]
+                    },
+                    "title": { 
+                        "type": "string",
+                        "description": "Human-readable check name"
+                    },
+                    "description": { 
+                        "type": "string",
+                        "description": "Detailed description of what was checked"
+                    },
+                    "namespace": { 
+                        "type": "string",
+                        "description": "Namespace this check applies to"
+                    },
+                    "evidence": {
+                        "type": "object",
+                        "description": "Supporting data for the check"
+                    },
+                    "remediation": { 
+                        "type": "string",
+                        "description": "Guidance on how to fix if failed"
+                    }
+                },
+                "required": ["id", "category", "severity", "status", "title"]
+            }
+        },
+        "summary": {
+            "type": "object",
+            "properties": {
+                "total": { "type": "integer" },
+                "pass": { "type": "integer" },
+                "fail": { "type": "integer" },
+                "warn": { "type": "integer" },
+                "skip": { "type": "integer" },
+                "bySeverity": {
+                    "type": "object",
+                    "properties": {
+                        "critical": { "type": "integer" },
+                        "high": { "type": "integer" },
+                        "medium": { "type": "integer" },
+                        "low": { "type": "integer" }
+                    }
+                }
+            },
+            "required": ["total", "pass", "fail", "warn"]
+        },
+        "verdict": {
+            "type": "string",
+            "enum": ["PASS", "FAIL", "WARN"],
+            "description": "Overall safety verdict"
+        },
+        "artifactHash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+    },
+    "required": ["version", "type", "timestamp", "runId", "policy", "checks", "summary", "verdict", "artifactHash"]
+}

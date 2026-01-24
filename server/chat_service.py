@@ -17,6 +17,7 @@ from typing import Any
 from openai import OpenAI
 
 from server.tools import (
+    # Existing diagnostic tools
     AksArcValidateTool,
     AksArcLogsTool,
     AksArcSupportTool,
@@ -26,6 +27,12 @@ from server.tools import (
     AzLocalTsgTool,
     DiagnosticsBundleTool,
     ArcOpsEducationalTool,
+    # New readiness packs
+    SupplyChainGateTool,
+    NetworkSafetyTool,
+    NetworkRenderTool,
+    GpuCheckTool,
+    FoundryValidateTool,
 )
 
 logger = logging.getLogger(__name__)
@@ -93,6 +100,12 @@ TOOL_REGISTRY = {
     # Utility Tools
     "arcops.diagnostics.bundle": DiagnosticsBundleTool(),
     "arcops.explain": ArcOpsEducationalTool(),
+    # Readiness Packs (new)
+    "supply_chain.gate": SupplyChainGateTool(),
+    "network.safety": NetworkSafetyTool(),
+    "network.render": NetworkRenderTool(),
+    "gpu.check": GpuCheckTool(),
+    "foundry.validate": FoundryValidateTool(),
 }
 
 
