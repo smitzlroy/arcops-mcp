@@ -18,10 +18,6 @@ I built this to explore:
 - Tool orchestration for Azure Local / AKS Arc diagnostics
 - React + FastAPI full-stack development
 
-**What I learned:** While technically interesting, this project adds complexity rather than reducing it for real customer scenarios. The MCP layer provides indirection that most ops workflows don't benefit from — customers typically want scripts that *fix things*, not an LLM that tells them what's broken.
-
-**Looking for something more practical?** Check out [aksarcdeployment](https://github.com/smitzlroy/aksarcdeployment) — a more focused approach to AKS Arc deployment automation.
-
 ---
 
 > **AI-powered diagnostic assistant for Azure Local and AKS Arc** — powered by Model Context Protocol (MCP) and local AI models.
