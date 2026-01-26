@@ -4,6 +4,25 @@
 [![Foundry Local](https://img.shields.io/badge/Foundry%20Local-compatible-green)](https://github.com/microsoft/foundry-local)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-archived%20%2F%20learning%20project-orange)](.)
+
+---
+
+## ⚠️ Project Status: Learning Project (Archived)
+
+**This repository is a personal learning/exploration project, not production-ready software.**
+
+I built this to explore:
+- Model Context Protocol (MCP) architecture and patterns
+- Local AI inference with Foundry Local
+- Tool orchestration for Azure Local / AKS Arc diagnostics
+- React + FastAPI full-stack development
+
+**What I learned:** While technically interesting, this project adds complexity rather than reducing it for real customer scenarios. The MCP layer provides indirection that most ops workflows don't benefit from — customers typically want scripts that *fix things*, not an LLM that tells them what's broken.
+
+**Looking for something more practical?** Check out [aksarcdeployment](https://github.com/smitzlroy/aksarcdeployment) — a more focused approach to AKS Arc deployment automation.
+
+---
 
 > **AI-powered diagnostic assistant for Azure Local and AKS Arc** — powered by Model Context Protocol (MCP) and local AI models.
 
@@ -205,6 +224,19 @@ MIT License — see [LICENSE](LICENSE)
 
 ---
 
-**Built with** ❤️ **for Azure Local and AKS Arc operators**
+## 🎓 What This Project Taught Me
 
-*Powered by [Model Context Protocol](https://modelcontextprotocol.io) and [Foundry Local](https://github.com/microsoft/foundry-local)*
+| Area | Technologies / Concepts |
+|------|-------------------------|
+| **MCP Protocol** | Tool definitions, stdio transport, JSON-RPC |
+| **Local AI** | Foundry Local, SLMs, tool calling, OpenAI API compatibility |
+| **Python** | FastAPI, async/await, Pydantic, pytest |
+| **Frontend** | React, TypeScript, Vite, Tailwind CSS |
+| **DevOps** | PowerShell automation, VS Code tasks, GitHub workflows |
+| **Architecture** | When NOT to add abstraction layers |
+
+**Key takeaway:** Not every problem needs an AI layer. Sometimes a well-written script is more valuable than an LLM-powered tool router.
+
+---
+
+**Built as a learning project** — exploring [Model Context Protocol](https://modelcontextprotocol.io) and [Foundry Local](https://github.com/microsoft/foundry-local)
